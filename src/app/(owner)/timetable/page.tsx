@@ -51,7 +51,6 @@ const createBookingSchema = z.object({
   proId: z.string().min(1, "กรุณาเลือกโปรโค้ช"),
   date: z.string().min(1, "กรุณาเลือกวันที่"),
   startTime: z.string().min(1, "กรุณาเลือกเวลาเริ่ม"),
-  endTime: z.string().min(1, "กรุณาเลือกเวลาสิ้นสุด"),
 });
 
 type CreateBookingForm = z.infer<typeof createBookingSchema>;
@@ -580,7 +579,7 @@ export default function TimetablePage() {
                   isInvalid={!!errors.date}
                   errorMessage={errors.date?.message}
                 />
-                <div className="grid grid-cols-2 gap-4">
+                <div>
                   <Input
                     label="เวลาเริ่ม"
                     type="time"
@@ -588,13 +587,7 @@ export default function TimetablePage() {
                     isInvalid={!!errors.startTime}
                     errorMessage={errors.startTime?.message}
                   />
-                  <Input
-                    label="เวลาสิ้นสุด"
-                    type="time"
-                    {...register("endTime")}
-                    isInvalid={!!errors.endTime}
-                    errorMessage={errors.endTime?.message}
-                  />
+                  <p className="text-xs text-gray-400 mt-1">* การจองแต่ละครั้ง = 1 ชั่วโมง (เวลาสิ้นสุดจะคำนวณอัตโนมัติ)</p>
                 </div>
               </ModalBody>
               <ModalFooter>

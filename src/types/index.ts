@@ -72,6 +72,7 @@ export interface Review {
   comment: string;
   videoUrl?: string;
   createdAt: string;
+  updatedAt?: string;
   studentName?: string;
   proName?: string;
   date?: string;

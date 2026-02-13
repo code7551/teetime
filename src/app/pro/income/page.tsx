@@ -295,7 +295,7 @@ export default function ProIncomePage() {
                       </TableCell>
                       <TableCell>
                         <p className="font-medium text-gray-800">
-                          {booking.studentName || "นักเรียน"}
+                          {booking.studentName || student?.displayName || "นักเรียน"}
                         </p>
                         {courseName && (
                           <p className="text-xs text-gray-400">{courseName}</p>

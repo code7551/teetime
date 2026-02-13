@@ -9,6 +9,7 @@ import {
   Button,
   Textarea,
   Divider,
+  Chip,
 } from "@heroui/react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -20,11 +21,12 @@ import {
   Clock,
   Video,
   X,
+  CheckCircle,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { th } from "date-fns/locale/th";
 import { useRouter } from "next/navigation";
-import type { Booking } from "@/types";
+import type { Booking, Review } from "@/types";
 
 export default function ProReviewPage({
   params,
@@ -37,36 +39,54 @@ export default function ProReviewPage({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [comment, setComment] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [existingVideoUrl, setExistingVideoUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (!user || !firebaseUser) return;
 
-    const fetchBooking = async () => {
+    const fetchData = async () => {
       try {
         const token = await firebaseUser.getIdToken();
         const headers = { Authorization: `Bearer ${token}` };
 
-        const res = await fetch(`/api/bookings/${bookingId}`, { headers });
-        if (res.ok) {
-          const data: Booking = await res.json();
+        // Fetch booking and existing review in parallel
+        const [bookingRes, reviewRes] = await Promise.all([
+          fetch(`/api/bookings/${bookingId}`, { headers }),
+          fetch(`/api/reviews?bookingId=${bookingId}`, { headers }),
+        ]);
+
+        if (bookingRes.ok) {
+          const data: Booking = await bookingRes.json();
           setBooking(data);
         } else {
           setError("ไม่พบข้อมูลการจอง");
         }
+
+        if (reviewRes.ok) {
+          const reviews: Review[] = await reviewRes.json();
+          if (reviews.length > 0) {
+            const review = reviews[0];
+            setExistingReview(review);
+            setComment(review.comment || "");
+            setExistingVideoUrl(review.videoUrl || "");
+          }
+        }
       } catch (err) {
-        console.error("Error fetching booking:", err);
+        console.error("Error fetching data:", err);
         setError("เกิดข้อผิดพลาดในการโหลดข้อมูล");
       } finally {
         setDataLoading(false);
       }
     };
 
-    fetchBooking();
+    fetchData();
   }, [user, firebaseUser, bookingId]);
 
   const handleSubmit = async () => {
@@ -80,11 +100,12 @@ export default function ProReviewPage({
     try {
       setSubmitting(true);
       setError("");
+      setSaved(false);
       const token = await firebaseUser.getIdToken();
 
-      let videoUrl = "";
+      let videoUrl = existingVideoUrl;
 
-      // Upload video if provided
+      // Upload video if a new file is provided
       if (videoFile) {
         const formData = new FormData();
         formData.append("file", videoFile);
@@ -105,7 +126,7 @@ export default function ProReviewPage({
         }
       }
 
-      // Submit review
+      // Submit review (POST handles both create and update)
       const reviewRes = await fetch("/api/reviews", {
         method: "POST",
         headers: {
@@ -117,15 +138,24 @@ export default function ProReviewPage({
           studentId: booking.studentId,
           proId: user.uid,
           comment: comment.trim(),
-          ...(videoUrl && { videoUrl }),
+          videoUrl: videoUrl || "",
+          studentName: booking.studentName,
+          proName: booking.proName || user.displayName,
+          date: booking.date,
         }),
       });
 
       if (reviewRes.ok) {
-        router.push("/pro/timetable");
+        const savedReview = await reviewRes.json();
+        setExistingReview(savedReview);
+        setExistingVideoUrl(savedReview.videoUrl || "");
+        setVideoFile(null);
+        setSaved(true);
+        // Auto-hide success after 3s
+        setTimeout(() => setSaved(false), 3000);
       } else {
         const errData = await reviewRes.json();
-        setError(errData.error || "ส่งรีวิวไม่สำเร็จ");
+        setError(errData.error || "บันทึกรีวิวไม่สำเร็จ");
       }
     } catch (err) {
       console.error("Error submitting review:", err);
@@ -175,6 +205,8 @@ export default function ProReviewPage({
     );
   }
 
+  const isEditing = !!existingReview;
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       {/* Back Button */}
@@ -187,14 +219,21 @@ export default function ProReviewPage({
       </Button>
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <FileEdit className="text-green-600" size={28} />
-          เขียนรีวิวการสอน
-        </h1>
-        <p className="text-gray-500 mt-1">
-          บันทึกผลการเรียนและคำแนะนำให้นักเรียน
-        </p>
+      <div className="flex items-center gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <FileEdit className="text-green-600" size={28} />
+            {isEditing ? "แก้ไขรีวิวการสอน" : "เขียนรีวิวการสอน"}
+          </h1>
+          <p className="text-gray-500 mt-1">
+            บันทึกผลการเรียนและคำแนะนำให้นักเรียน
+          </p>
+        </div>
+        {isEditing && (
+          <Chip color="primary" variant="flat" size="sm">
+            แก้ไข
+          </Chip>
+        )}
       </div>
 
       {/* Booking Info */}
@@ -237,6 +276,18 @@ export default function ProReviewPage({
         </CardBody>
       </Card>
 
+      {/* Success Message */}
+      {saved && (
+        <Card className="bg-green-50 border border-green-200">
+          <CardBody className="p-3 flex flex-row items-center gap-2">
+            <CheckCircle size={18} className="text-green-600" />
+            <p className="text-green-700 text-sm font-medium">
+              บันทึกรีวิวสำเร็จ!
+            </p>
+          </CardBody>
+        </Card>
+      )}
+
       {/* Review Form */}
       <Card className="border border-gray-100 shadow-sm">
         <CardBody className="p-6 space-y-5">
@@ -265,6 +316,29 @@ export default function ProReviewPage({
               วิดีโอการสอน (ไม่บังคับ)
             </label>
 
+            {/* Show existing video URL */}
+            {existingVideoUrl && !videoFile && (
+              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200 mb-3">
+                <Video size={20} className="text-blue-600" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-blue-800">
+                    มีวิดีโออยู่แล้ว
+                  </p>
+                  <p className="text-xs text-blue-500 truncate">
+                    {existingVideoUrl}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color="primary"
+                  onPress={() => fileInputRef.current?.click()}
+                >
+                  เปลี่ยน
+                </Button>
+              </div>
+            )}
+
             {videoFile ? (
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <Video size={20} className="text-green-600" />
@@ -291,7 +365,7 @@ export default function ProReviewPage({
                   <X size={16} />
                 </Button>
               </div>
-            ) : (
+            ) : !existingVideoUrl ? (
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -305,7 +379,7 @@ export default function ProReviewPage({
                   รองรับ MP4, MOV (สูงสุด 100MB)
                 </p>
               </button>
-            )}
+            ) : null}
 
             <input
               ref={fileInputRef}
@@ -327,7 +401,7 @@ export default function ProReviewPage({
               variant="light"
               onPress={() => router.push("/pro/timetable")}
             >
-              ยกเลิก
+              กลับ
             </Button>
             <Button
               color="success"
@@ -336,7 +410,7 @@ export default function ProReviewPage({
               onPress={handleSubmit}
               startContent={!submitting && <FileEdit size={18} />}
             >
-              ส่งรีวิว
+              {isEditing ? "บันทึกการแก้ไข" : "ส่งรีวิว"}
             </Button>
           </div>
         </CardBody>

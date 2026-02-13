@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   MessageCircle,
+  FileEdit,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
@@ -51,6 +52,11 @@ const ownerNav: NavItem[] = [
     label: "ตารางเรียน",
     href: "/timetable",
     icon: <CalendarDays size={20} />,
+  },
+  {
+    label: "รีวิวการสอน",
+    href: "/teaching-reviews",
+    icon: <FileEdit size={20} />,
   },
   {
     label: "บัญชี LINE",

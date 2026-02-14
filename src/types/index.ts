@@ -17,7 +17,7 @@ export interface AppUser {
   avatarUrl?: string;
   nickname?: string;
   gender?: Gender;
-  age?: number;
+  birthdate?: string; // ISO date string (YYYY-MM-DD)
   learningGoals?: string;
   courseId?: string; // Assigned course by owner
 }

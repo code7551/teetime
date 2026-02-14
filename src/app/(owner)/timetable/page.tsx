@@ -45,6 +45,7 @@ import {
 } from "date-fns";
 import { th } from "date-fns/locale/th";
 import type { AppUser, Booking, BookingStatus } from "@/types";
+import { findUserByUid } from "@/lib/utils";
 
 const createBookingSchema = z.object({
   studentId: z.string().min(1, "กรุณาเลือกนักเรียน"),
@@ -240,6 +241,7 @@ export default function TimetablePage() {
 
   const today = new Date();
   const selectedDayBookings = selectedDay ? bookingsByDay[selectedDay] || [] : [];
+
 
   if (loading) {
     return (
@@ -495,13 +497,13 @@ export default function TimetablePage() {
                       <div className="flex items-center gap-2">
                         <GraduationCap size={14} className="text-gray-500" />
                         <span className="text-gray-700">
-                          {booking.studentName ?? "นักเรียน"}
+                          {findUserByUid({ userDatas: students, uid: booking.studentId })?.displayName ?? "-"}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <User size={14} className="text-gray-500" />
                         <span className="text-gray-600">
-                          โปร {booking.proName ?? "-"}
+                          โปร {findUserByUid({ userDatas: pros, uid: booking.proId })?.displayName ?? "-"}
                         </span>
                       </div>
                     </div>

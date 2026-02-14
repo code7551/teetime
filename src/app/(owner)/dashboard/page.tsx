@@ -5,18 +5,10 @@ import {
   Card,
   CardBody,
   Spinner,
-  Table,
-  TableHeader,
-  TableColumn,
-  TableBody,
-  TableRow,
-  TableCell,
-  Chip,
 } from "@heroui/react";
 import { Users, GraduationCap, CreditCard, CalendarDays } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { format } from "date-fns";
-import { th } from "date-fns/locale/th";
+import PaymentTable from "@/components/PaymentTable";
 import type { Payment } from "@/types";
 
 interface DashboardStats {
@@ -147,42 +139,10 @@ export default function OwnerDashboardPage() {
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
             รายการรอตรวจสอบการชำระเงิน
           </h2>
-          {pendingPayments.length === 0 ? (
-            <p className="text-gray-400 text-center py-8">
-              ไม่มีรายการรอตรวจสอบ
-            </p>
-          ) : (
-            <Table aria-label="รายการรอตรวจสอบการชำระเงิน" removeWrapper>
-              <TableHeader>
-                <TableColumn>นักเรียน</TableColumn>
-                <TableColumn>คอร์ส</TableColumn>
-                <TableColumn>จำนวนเงิน</TableColumn>
-                <TableColumn>สถานะ</TableColumn>
-                <TableColumn>วันที่</TableColumn>
-              </TableHeader>
-              <TableBody>
-                {pendingPayments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell>{payment.studentName ?? "-"}</TableCell>
-                    <TableCell>{payment.courseName ?? "-"}</TableCell>
-                    <TableCell>
-                      ฿{payment.amount.toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <Chip size="sm" color="warning" variant="flat">
-                        รอตรวจสอบ
-                      </Chip>
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(payment.createdAt), "d MMM yyyy", {
-                        locale: th,
-                      })}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <PaymentTable
+            payments={pendingPayments}
+            emptyMessage="ไม่มีรายการรอตรวจสอบ"
+          />
         </CardBody>
       </Card>
     </div>

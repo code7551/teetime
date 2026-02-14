@@ -5,12 +5,6 @@ import {
   Card,
   CardBody,
   Spinner,
-  Table,
-  TableHeader,
-  TableColumn,
-  TableBody,
-  TableRow,
-  TableCell,
   Button,
   Modal,
   ModalContent,
@@ -22,20 +16,12 @@ import {
   Tab,
   useDisclosure,
 } from "@heroui/react";
-import { CheckCircle, XCircle, Eye } from "lucide-react";
+import { CheckCircle, XCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { th } from "date-fns/locale/th";
-import type { Payment, PaymentStatus } from "@/types";
-
-const statusConfig: Record<
-  PaymentStatus,
-  { label: string; color: "warning" | "success" | "danger" }
-> = {
-  pending: { label: "รอตรวจสอบ", color: "warning" },
-  approved: { label: "อนุมัติแล้ว", color: "success" },
-  rejected: { label: "ปฏิเสธ", color: "danger" },
-};
+import PaymentTable, { statusConfig } from "@/components/PaymentTable";
+import type { Payment } from "@/types";
 
 export default function PaymentsPage() {
   const { firebaseUser } = useAuth();
@@ -157,58 +143,11 @@ export default function PaymentsPage() {
 
       <Card className="shadow-sm">
         <CardBody className="p-0">
-          {filteredPayments.length === 0 ? (
-            <p className="text-gray-400 text-center py-12">
-              ไม่มีรายการชำระเงิน
-            </p>
-          ) : (
-            <Table aria-label="รายการชำระเงิน" removeWrapper>
-              <TableHeader>
-                <TableColumn>นักเรียน</TableColumn>
-                <TableColumn>จำนวนเงิน</TableColumn>
-                <TableColumn>คอร์ส</TableColumn>
-                <TableColumn>สถานะ</TableColumn>
-                <TableColumn>วันที่</TableColumn>
-                <TableColumn align="center">จัดการ</TableColumn>
-              </TableHeader>
-              <TableBody>
-                {filteredPayments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell className="font-medium">
-                      {payment.studentName ?? "-"}
-                    </TableCell>
-                    <TableCell>฿{payment.amount.toLocaleString()}</TableCell>
-                    <TableCell>{payment.courseName ?? "-"}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="sm"
-                        color={statusConfig[payment.status]?.color ?? "default"}
-                        variant="flat"
-                      >
-                        {statusConfig[payment.status]?.label ?? payment.status}
-                      </Chip>
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(payment.createdAt), "d MMM yyyy", {
-                        locale: th,
-                      })}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        variant="flat"
-                        color="success"
-                        startContent={<Eye size={16} />}
-                        onPress={() => handleViewPayment(payment)}
-                      >
-                        ดูรายละเอียด
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <PaymentTable
+            payments={filteredPayments}
+            showActions
+            onViewPayment={handleViewPayment}
+          />
         </CardBody>
       </Card>
 

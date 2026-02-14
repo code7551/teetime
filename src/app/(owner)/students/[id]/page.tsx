@@ -38,6 +38,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { th } from "date-fns/locale/th";
 import type { AppUser, Booking, Payment, Review, StudentHours, Course } from "@/types";
+import { calculateAge } from "@/lib/utils";
 
 export default function StudentProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -210,7 +211,9 @@ export default function StudentProfilePage() {
                       : student.gender === "other"
                         ? "อื่นๆ"
                         : "-"}
-                  {student.age ? `, ${student.age} ปี` : ""}
+                  {student.birthdate
+                    ? `, ${calculateAge(student.birthdate)} ปี`
+                    : ""}
                 </div>
                 <div className="flex items-center gap-2">
                   <MessageCircle size={16} className="text-gray-400" />
@@ -310,7 +313,9 @@ export default function StudentProfilePage() {
                   size="sm"
                   variant="bordered"
                 >
-                  {activationCode}
+                  <div className="w-full overflow-x-auto break-all whitespace-pre-wrap">
+                    {activationCode}
+                  </div>
                 </Snippet>
               </div>
             </div>

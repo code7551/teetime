@@ -43,7 +43,7 @@ const studentSchema = z.object({
   nickname: z.string().optional(),
   phone: z.string().min(9, "กรุณากรอกเบอร์โทรศัพท์"),
   gender: z.string().min(1, "กรุณาเลือกเพศ"),
-  age: z.number({ error: "กรุณากรอกอายุ" }).min(1, "อายุต้องมากกว่า 0"),
+  birthdate: z.string().min(1, "กรุณากรอกวันเกิด"),
   learningGoals: z.string().optional(),
   proId: z.string().min(1, "กรุณาเลือกโปรโค้ช"),
   courseId: z.string().optional(),
@@ -137,7 +137,7 @@ export default function StudentsPage() {
       nickname: "",
       phone: "",
       gender: "",
-      age: 0,
+      birthdate: "",
       learningGoals: "",
       proId: "",
       courseId: "",
@@ -155,7 +155,7 @@ export default function StudentsPage() {
       nickname: student.nickname || "",
       phone: student.phone || "",
       gender: student.gender || "",
-      age: student.age || 0,
+      birthdate: student.birthdate || "",
       learningGoals: student.learningGoals || "",
       proId: student.proId || "",
       courseId: student.courseId || "",
@@ -201,7 +201,6 @@ export default function StudentsPage() {
       const payload = {
         ...formData,
         displayName: `${formData.firstName} ${formData.lastName}`,
-        age: Number(formData.age),
         role: "student",
         ...(avatarUrl && { avatarUrl }),
       };
@@ -458,13 +457,12 @@ export default function StudentsPage() {
                     <SelectItem key="other" textValue="อื่นๆ">อื่นๆ</SelectItem>
                   </Select>
                   <Input
-                    label="อายุ"
-                    placeholder="กรอกอายุ"
-                    type="number"
-                    {...register("age", { valueAsNumber: true })}
-                    isInvalid={!!errors.age}
-                    errorMessage={errors.age?.message}
-                    endContent={<span className="text-xs text-gray-400">ปี</span>}
+                    label="วันเกิด"
+                    placeholder="วัน/เดือน/ปี"
+                    type="date"
+                    {...register("birthdate")}
+                    isInvalid={!!errors.birthdate}
+                    errorMessage={errors.birthdate?.message}
                   />
                 </div>
 

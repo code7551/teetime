@@ -3,7 +3,7 @@
 import { useMiniApp } from "@/hooks/useMiniApp";
 import { useEffect, useState } from "react";
 import { Card, CardBody, Spinner } from "@heroui/react";
-import { MessageSquare, User, X } from "lucide-react";
+import { X } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
@@ -37,9 +37,8 @@ export default function ReviewsPage() {
 
   if (miniAppLoading || loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <Spinner size="lg" color="success" />
-        <p className="text-sm text-gray-400">กำลังโหลด...</p>
       </div>
     );
   }
@@ -47,9 +46,6 @@ export default function ReviewsPage() {
   if (!isLinked || !student) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-          <MessageSquare size={28} className="text-gray-300" />
-        </div>
         <p className="text-gray-400 text-sm">
           กรุณา
           <Link href="/miniapp" className="text-emerald-500 font-medium mx-1">
@@ -62,54 +58,39 @@ export default function ReviewsPage() {
   }
 
   return (
-    <div className="space-y-4 pb-6">
-      <SubPageHeader
-        title="รีวิวจากโปรโค้ช"
-        icon={<MessageSquare size={20} className="text-purple-500" />}
-      />
+    <div className="pb-6">
+      <SubPageHeader title="รีวิวจากโปรโค้ช" />
 
       {reviews.length === 0 ? (
-        <Card className="shadow-sm border-0">
-          <CardBody className="text-center py-16">
-            <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <MessageSquare size={28} className="text-gray-200" />
-            </div>
-            <p className="text-gray-400 text-sm">ยังไม่มีรีวิว</p>
-            <p className="text-gray-300 text-xs mt-1">
-              รีวิวจากโปรโค้ชจะแสดงที่นี่
-            </p>
-          </CardBody>
-        </Card>
+        <div className="text-center py-20">
+          <p className="text-sm text-gray-400">ยังไม่มีรีวิว</p>
+          <p className="text-xs text-gray-300 mt-1">
+            รีวิวจากโปรโค้ชจะแสดงที่นี่
+          </p>
+        </div>
       ) : (
         <div className="space-y-3">
           {reviews.map((review) => (
-            <Card key={review.id} className="shadow-sm border-0">
+            <Card key={review.id} className="shadow-sm border-0 border-l-3 border-l-purple-300">
               <CardBody className="p-4">
-                {/* Review header */}
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center shrink-0">
-                    <User size={16} className="text-emerald-500" />
-                  </div>
-                  <div className="min-w-0">
-                    {review.proName && (
-                      <p className="text-sm font-semibold text-gray-700 truncate">
-                        โปรโค้ช {review.proName}
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-400">
-                      {format(new Date(review.createdAt), "d MMMM yyyy", {
-                        locale: th,
-                      })}
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  {review.proName && (
+                    <p className="text-sm font-semibold text-purple-700">
+                      {review.proName}
                     </p>
-                  </div>
+                  )}
+                  <p className="text-xs text-gray-400">
+                    {format(new Date(review.createdAt), "d MMM yyyy", {
+                      locale: th,
+                    })}
+                  </p>
                 </div>
 
                 {/* Comment */}
-                <div className="bg-gray-50 rounded-xl p-3.5">
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                    {review.comment}
-                  </p>
-                </div>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                  {review.comment}
+                </p>
 
                 {/* Video */}
                 {review.videoUrl && (
@@ -120,20 +101,19 @@ export default function ReviewsPage() {
                       preload="metadata"
                     >
                       <source src={review.videoUrl} />
-                      เบราว์เซอร์ไม่รองรับวิดีโอ
                     </video>
                   </div>
                 )}
 
                 {/* Images */}
                 {review.imageUrls && review.imageUrls.length > 0 && (
-                  <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div className="mt-3 grid grid-cols-3 gap-1.5">
                     {review.imageUrls.map((url, idx) => (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => setLightboxImage(url)}
-                        className="aspect-square rounded-xl overflow-hidden border border-gray-100 hover:border-emerald-300 transition-colors cursor-pointer"
+                        className="aspect-square rounded-lg overflow-hidden"
                       >
                         <img
                           src={url}
@@ -150,7 +130,7 @@ export default function ReviewsPage() {
         </div>
       )}
 
-      {/* Lightbox overlay */}
+      {/* Lightbox */}
       {lightboxImage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
@@ -159,7 +139,7 @@ export default function ReviewsPage() {
           <button
             type="button"
             onClick={() => setLightboxImage(null)}
-            className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 transition-colors"
+            className="absolute top-4 right-4 text-white/60 hover:text-white rounded-full p-2 transition-colors"
           >
             <X size={24} />
           </button>

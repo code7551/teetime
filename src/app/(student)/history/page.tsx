@@ -3,7 +3,6 @@
 import { useMiniApp } from "@/hooks/useMiniApp";
 import { useEffect, useState } from "react";
 import { Card, CardBody, Spinner, Chip } from "@heroui/react";
-import { Calendar, Clock, User, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
@@ -36,9 +35,8 @@ export default function HistoryPage() {
 
   if (miniAppLoading || loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <Spinner size="lg" color="success" />
-        <p className="text-sm text-gray-400">กำลังโหลด...</p>
       </div>
     );
   }
@@ -46,9 +44,6 @@ export default function HistoryPage() {
   if (!isLinked || !student) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-          <BookOpen size={28} className="text-gray-300" />
-        </div>
         <p className="text-gray-400 text-sm">
           กรุณา
           <Link href="/miniapp" className="text-emerald-500 font-medium mx-1">
@@ -62,76 +57,64 @@ export default function HistoryPage() {
 
   const statusMap: Record<
     string,
-    { label: string; color: "success" | "warning" | "danger" | "default" }
+    {
+      label: string;
+      color: "success" | "warning" | "danger" | "default";
+      border: string;
+    }
   > = {
-    completed: { label: "เสร็จสิ้น", color: "success" },
-    scheduled: { label: "นัดหมาย", color: "warning" },
-    cancelled: { label: "ยกเลิก", color: "danger" },
+    completed: { label: "เสร็จสิ้น", color: "success", border: "border-l-emerald-400" },
+    scheduled: { label: "นัดหมาย", color: "warning", border: "border-l-amber-400" },
+    cancelled: { label: "ยกเลิก", color: "danger", border: "border-l-red-300" },
   };
 
-  return (
-    <div className="space-y-4 pb-6">
-      <SubPageHeader
-        title="ประวัติการเรียน"
-        icon={<BookOpen size={20} className="text-blue-500" />}
-      />
+  const sorted = [...bookings].sort(
+    (a, b) =>
+      b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime)
+  );
 
-      {bookings.length === 0 ? (
-        <Card className="shadow-sm border-0">
-          <CardBody className="text-center py-16">
-            <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Calendar size={28} className="text-gray-200" />
-            </div>
-            <p className="text-gray-400 text-sm">ยังไม่มีประวัติการเรียน</p>
-            <p className="text-gray-300 text-xs mt-1">
-              ข้อมูลจะแสดงเมื่อมีการจองเรียน
-            </p>
-          </CardBody>
-        </Card>
+  return (
+    <div className="pb-6">
+      <SubPageHeader title="ประวัติการเรียน" />
+
+      {sorted.length === 0 ? (
+        <div className="text-center py-20">
+          <p className="text-sm text-gray-400">ยังไม่มีประวัติการเรียน</p>
+          <p className="text-xs text-gray-300 mt-1">
+            ข้อมูลจะแสดงเมื่อมีการจองเรียน
+          </p>
+        </div>
       ) : (
         <div className="space-y-2.5">
-          {bookings.map((booking) => {
+          {sorted.map((booking) => {
             const status = statusMap[booking.status] || {
               label: booking.status,
               color: "default" as const,
+              border: "border-l-gray-300",
             };
             return (
-              <Card key={booking.id} className="shadow-sm border-0">
-                <CardBody className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2 min-w-0 flex-1">
-                      <div className="flex items-center gap-2 text-sm text-gray-700">
-                        <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
-                          <Calendar size={14} className="text-blue-500" />
-                        </div>
-                        <span className="font-medium">
-                          {format(new Date(booking.date), "d MMMM yyyy", {
-                            locale: th,
-                          })}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <div className="w-7 h-7 bg-gray-50 rounded-lg flex items-center justify-center shrink-0">
-                          <Clock size={14} className="text-gray-400" />
-                        </div>
-                        <span>
-                          {booking.startTime} - {booking.endTime}
-                        </span>
-                      </div>
-                      {booking.proName && (
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <div className="w-7 h-7 bg-emerald-50 rounded-lg flex items-center justify-center shrink-0">
-                            <User size={14} className="text-emerald-500" />
-                          </div>
-                          <span>โปรโค้ช {booking.proName}</span>
-                        </div>
-                      )}
+              <Card
+                key={booking.id}
+                className={`shadow-sm border-0 border-l-3 ${status.border}`}
+              >
+                <CardBody className="px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-800">
+                        {format(new Date(booking.date), "d MMMM yyyy", {
+                          locale: th,
+                        })}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {booking.startTime} – {booking.endTime}
+                        {booking.proName && ` · โปร ${booking.proName}`}
+                      </p>
                     </div>
                     <Chip
                       size="sm"
                       color={status.color}
                       variant="flat"
-                      className="shrink-0 ml-2"
+                      className="shrink-0"
                     >
                       {status.label}
                     </Chip>

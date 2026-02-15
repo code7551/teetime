@@ -64,13 +64,17 @@ export async function DELETE(
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    await coursesCol.deleteOne({ _id: new ObjectId(id) });
+    // Soft-delete: hide the course instead of removing it
+    await coursesCol.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { isActive: false } }
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting course:", error);
+    console.error("Error hiding course:", error);
     return NextResponse.json(
-      { error: "Failed to delete course" },
+      { error: "Failed to hide course" },
       { status: 500 }
     );
   }

@@ -7,14 +7,14 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/activate
- * Body: { code: string, lineUserId: string, lineDisplayName?: string }
+ * Body: { code: string, lineUserId: string }
  *
  * Validates the activation JWT and links the LINE userId to the student.
  * Supports multiple LINE accounts per student.
  */
 export async function POST(request: NextRequest) {
   try {
-    const { code, lineUserId, lineDisplayName } = await request.json();
+    const { code, lineUserId } = await request.json();
 
     if (!code || !lineUserId) {
       return NextResponse.json(
@@ -59,13 +59,6 @@ export async function POST(request: NextRequest) {
     // Check if this LINE account is already linked to this student
     const existingIds: string[] = (studentDoc.lineUserIds as string[]) || [];
     if (existingIds.includes(lineUserId)) {
-      // Update display name even if already linked (name may have changed)
-      if (lineDisplayName) {
-        await usersCol.updateOne(
-          { _id: studentId as unknown as ObjectId },
-          { $set: { [`lineDisplayNames.${lineUserId}`]: lineDisplayName } }
-        );
-      }
       return NextResponse.json({
         success: true,
         message: "บัญชี LINE นี้เชื่อมต่อกับนักเรียนแล้ว",
@@ -73,15 +66,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Add the LINE userId to the student's lineUserIds array and store display name
+    // Add the LINE userId to the student's lineUserIds array
     await usersCol.updateOne(
       { _id: studentId as unknown as ObjectId },
-      {
-        $addToSet: { lineUserIds: lineUserId },
-        ...(lineDisplayName
-          ? { $set: { [`lineDisplayNames.${lineUserId}`]: lineDisplayName } }
-          : {}),
-      }
+      { $addToSet: { lineUserIds: lineUserId } }
     );
 
     const updatedDoc = await usersCol.findOne({

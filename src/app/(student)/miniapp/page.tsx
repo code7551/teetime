@@ -58,7 +58,7 @@ export default function MiniAppHomePage() {
       try {
         const [hoursRes, coursesRes, bookingsRes] = await Promise.all([
           fetch(`/api/student-hours/${student.uid}`),
-          student.courseId ? fetch("/api/courses") : Promise.resolve(null),
+          student.courseId ? fetch("/api/courses?includeHidden=true") : Promise.resolve(null),
           fetch(`/api/bookings?studentId=${student.uid}`),
         ]);
         if (hoursRes.ok) {

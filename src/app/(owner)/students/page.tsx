@@ -22,20 +22,15 @@ import {
   SelectItem,
   Textarea,
   useDisclosure,
-  Chip,
-  Snippet,
   Avatar,
   DatePicker,
 } from "@heroui/react";
 import { CalendarDate, parseDate } from "@internationalized/date";
 import { Plus, Eye, Upload, Pencil } from "lucide-react";
-import QRCodeDisplay from "@/components/QRCodeDisplay";
 import { useAuth } from "@/hooks/useAuth";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
-import { th } from "date-fns/locale/th";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import type { AppUser, Course } from "@/types";
@@ -57,18 +52,13 @@ type StudentFormData = z.infer<typeof studentSchema>;
 export default function StudentsPage() {
   const { firebaseUser } = useAuth();
   const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
-  const {
-    isOpen: isCodeOpen,
-    onOpen: onCodeOpen,
-    onOpenChange: onCodeOpenChange,
-  } = useDisclosure();
+  
   const [students, setStudents] = useState<AppUser[]>([]);
   const [pros, setPros] = useState<AppUser[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [activationCode, setActivationCode] = useState("");
-  const [createdStudentName, setCreatedStudentName] = useState("");
+  
   const [editingStudent, setEditingStudent] = useState<AppUser | null>(null);
 
   // Photo upload
@@ -79,7 +69,6 @@ export default function StudentsPage() {
     register,
     handleSubmit,
     reset,
-    setValue,
     control,
     formState: { errors },
   } = useForm<StudentFormData>({
@@ -95,7 +84,7 @@ export default function StudentsPage() {
       const [studentsRes, prosRes, coursesRes] = await Promise.all([
         fetch("/api/users?role=student", { headers }),
         fetch("/api/users?role=pro", { headers }),
-        fetch("/api/courses", { headers }),
+        fetch("/api/courses?includeHidden=true", { headers }),
       ]);
 
       if (!studentsRes.ok) throw new Error("ไม่สามารถโหลดข้อมูลได้");
@@ -237,11 +226,8 @@ export default function StudentsPage() {
           const errData = await res.json();
           throw new Error(errData.error || "ไม่สามารถสร้างบัญชีได้");
         }
-        const data = await res.json();
-        setActivationCode(data.activationCode || "");
-        setCreatedStudentName(`${formData.firstName} ${formData.lastName}`);
         onClose();
-        onCodeOpen();
+        toast.success("สร้างนักเรียนสำเร็จ");
         fetchData();
       }
 
@@ -477,7 +463,7 @@ export default function StudentsPage() {
                   {...register("courseId")}
                   defaultSelectedKeys={editingStudent?.courseId ? [editingStudent.courseId] : []}
                 >
-                  {courses.map((course) => (
+                  {courses.filter((c) => c.isActive !== false).map((course) => (
                     <SelectItem
                       key={course.id}
                       textValue={`${course.name} (${course.hours} ชม. - ฿${course.price.toLocaleString()})`}
@@ -526,56 +512,7 @@ export default function StudentsPage() {
         </ModalContent>
       </Modal>
 
-      {/* Activation Code Modal */}
-      <Modal isOpen={isCodeOpen} onOpenChange={onCodeOpenChange} size="lg">
-        <ModalContent>
-          {(onModalClose) => (
-            <>
-              <ModalHeader className="text-gray-800">
-                รหัสเปิดใช้งานสำหรับ {createdStudentName}
-              </ModalHeader>
-              <ModalBody>
-                <div className="space-y-4">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                    <p className="text-sm text-green-700 mb-2">
-                      ให้นักเรียนสแกน QR Code นี้ผ่าน LINE
-                      เพื่อเชื่อมต่อบัญชี
-                    </p>
-                    <p className="text-xs text-green-600">
-                      รองรับการเชื่อมต่อหลายบัญชี LINE
-                    </p>
-                  </div>
-
-                  {activationCode && (
-                    <div className="bg-white border border-gray-200 rounded-xl p-4">
-                      <QRCodeDisplay value={activationCode} size={240} />
-                    </div>
-                  )}
-
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 mb-1">
-                      หรือคัดลอกรหัส:
-                    </p>
-                    <Snippet
-                      symbol=""
-                      className="w-full"
-                      size="sm"
-                      variant="bordered"
-                    >
-                      {activationCode}
-                    </Snippet>
-                  </div>
-                </div>
-              </ModalBody>
-              <ModalFooter>
-                <Button color="success" onPress={onModalClose} className="text-white">
-                  เสร็จสิ้น
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
+    
     </div>
   );
 }

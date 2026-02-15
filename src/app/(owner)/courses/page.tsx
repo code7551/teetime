@@ -20,21 +20,35 @@ import {
   ModalFooter,
   Input,
   Textarea,
+  Chip,
   useDisclosure,
 } from "@heroui/react";
 import { useAuth } from "@/hooks/useAuth";
-import { Plus, Pencil, Trash2, BookOpen, Clock, Banknote } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Archive,
+  ArchiveRestore,
+  BookOpen,
+  Clock,
+  Banknote,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { th } from "date-fns/locale/th";
+import toast from "react-hot-toast";
 import type { Course } from "@/types";
 
 const courseSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อคอร์ส"),
-  hours: z.number({ error: "กรุณากรอกจำนวนชั่วโมง" }).min(1, "อย่างน้อย 1 ชั่วโมง"),
-  price: z.number({ error: "กรุณากรอกราคา" }).min(0, "ราคาต้องไม่ติดลบ"),
+  hours: z
+    .number({ error: "กรุณากรอกจำนวนชั่วโมง" })
+    .min(1, "อย่างน้อย 1 ชั่วโมง"),
+  price: z
+    .number({ error: "กรุณากรอกราคา" })
+    .min(0, "ราคาต้องไม่ติดลบ"),
   description: z.string().optional(),
 });
 
@@ -70,7 +84,7 @@ function CoursesContent() {
     if (!firebaseUser) return;
     try {
       const token = await firebaseUser.getIdToken();
-      const res = await fetch("/api/courses", {
+      const res = await fetch("/api/courses?includeHidden=true", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -86,6 +100,9 @@ function CoursesContent() {
   useEffect(() => {
     fetchCourses();
   }, [fetchCourses]);
+
+  const activeCourses = courses.filter((c) => c.isActive !== false);
+  const archivedCourses = courses.filter((c) => c.isActive === false);
 
   const openCreate = () => {
     setEditingCourse(null);
@@ -115,7 +132,6 @@ function CoursesContent() {
 
     try {
       if (editingCourse) {
-        // Update
         await fetch(`/api/courses/${editingCourse.id}`, {
           method: "PUT",
           headers: {
@@ -125,7 +141,6 @@ function CoursesContent() {
           body: JSON.stringify(data),
         });
       } else {
-        // Create
         await fetch("/api/courses", {
           method: "POST",
           headers: {
@@ -143,24 +158,45 @@ function CoursesContent() {
     }
   };
 
-  const handleDelete = async (course: Course) => {
-    if (!confirm(`ยืนยันลบคอร์ส "${course.name}"?`)) return;
+  const handleArchive = async (course: Course) => {
     if (!firebaseUser) return;
-
     const token = await firebaseUser.getIdToken();
     try {
       await fetch(`/api/courses/${course.id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
+      toast.success(`จัดเก็บคอร์ส "${course.name}" แล้ว`);
       fetchCourses();
     } catch (err) {
-      console.error("Error deleting course:", err);
+      console.error("Error archiving course:", err);
     }
   };
 
-  // Stats
-  const totalRevenuePotential = courses.reduce((s, c) => s + c.price, 0);
+  const handleUnarchive = async (course: Course) => {
+    if (!firebaseUser) return;
+    const token = await firebaseUser.getIdToken();
+    try {
+      await fetch(`/api/courses/${course.id}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ isActive: true }),
+      });
+      toast.success(`นำคอร์ส "${course.name}" กลับมาแล้ว`);
+      fetchCourses();
+    } catch (err) {
+      console.error("Error unarchiving course:", err);
+    }
+  };
+
+  // Stats (active only)
+  const totalRevenuePotential = activeCourses.reduce(
+    (s, c) => s + c.price,
+    0
+  );
 
   if (loading) {
     return (
@@ -175,7 +211,9 @@ function CoursesContent() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">จัดการคอร์สเรียน</h1>
+          <h1 className="text-2xl font-bold text-gray-800">
+            จัดการคอร์สเรียน
+          </h1>
           <p className="text-sm text-gray-500 mt-1">
             เพิ่ม แก้ไข และจัดการคอร์สเรียนทั้งหมด
           </p>
@@ -198,8 +236,10 @@ function CoursesContent() {
               <BookOpen size={20} className="text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-800">{courses.length}</p>
-              <p className="text-xs text-gray-500">คอร์สทั้งหมด</p>
+              <p className="text-2xl font-bold text-gray-800">
+                {activeCourses.length}
+              </p>
+              <p className="text-xs text-gray-500">คอร์สที่ใช้งาน</p>
             </div>
           </CardBody>
         </Card>
@@ -218,15 +258,15 @@ function CoursesContent() {
         </Card>
       </div>
 
-      {/* Courses Table */}
+      {/* Active Courses Table */}
       <Card className="shadow-sm border border-gray-100">
         <CardHeader className="px-6 pt-5 pb-0">
           <h3 className="font-semibold text-gray-800">
-            รายการคอร์สเรียน ({courses.length})
+            คอร์สที่ใช้งาน ({activeCourses.length})
           </h3>
         </CardHeader>
         <CardBody className="px-6 pb-5">
-          {courses.length === 0 ? (
+          {activeCourses.length === 0 ? (
             <div className="text-center py-12">
               <BookOpen size={48} className="text-gray-300 mx-auto mb-3" />
               <p className="text-gray-400">ยังไม่มีคอร์สเรียน</p>
@@ -246,15 +286,18 @@ function CoursesContent() {
                 <TableColumn>ชื่อคอร์ส</TableColumn>
                 <TableColumn>ชั่วโมง</TableColumn>
                 <TableColumn>ราคา</TableColumn>
+                <TableColumn>ราคา/ชม.</TableColumn>
                 <TableColumn>วันที่สร้าง</TableColumn>
                 <TableColumn align="center">จัดการ</TableColumn>
               </TableHeader>
               <TableBody>
-                {courses.map((course) => (
+                {activeCourses.map((course) => (
                   <TableRow key={course.id}>
                     <TableCell>
                       <div>
-                        <p className="font-medium text-gray-800">{course.name}</p>
+                        <p className="font-medium text-gray-800">
+                          {course.name}
+                        </p>
                         {course.description && (
                           <p className="text-xs text-gray-400 line-clamp-1 max-w-[200px]">
                             {course.description}
@@ -271,6 +314,16 @@ function CoursesContent() {
                     <TableCell>
                       <span className="text-sm font-medium">
                         ฿{course.price.toLocaleString()}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm font-medium text-green-600">
+                        ฿
+                        {course.hours > 0
+                          ? Math.round(
+                              course.price / course.hours
+                            ).toLocaleString()
+                          : 0}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -295,12 +348,12 @@ function CoursesContent() {
                         <Button
                           size="sm"
                           variant="flat"
-                          color="danger"
+                          color="warning"
                           isIconOnly
-                          onPress={() => handleDelete(course)}
-                          title="ลบ"
+                          onPress={() => handleArchive(course)}
+                          title="จัดเก็บ"
                         >
-                          <Trash2 size={16} />
+                          <Archive size={16} />
                         </Button>
                       </div>
                     </TableCell>
@@ -311,6 +364,85 @@ function CoursesContent() {
           )}
         </CardBody>
       </Card>
+
+      {/* Archived Courses */}
+      {archivedCourses.length > 0 && (
+        <Card className="shadow-sm border border-gray-100">
+          <CardHeader className="px-6 pt-5 pb-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-gray-500">
+                คอร์สที่จัดเก็บ
+              </h3>
+              <Chip size="sm" variant="flat" color="default">
+                {archivedCourses.length}
+              </Chip>
+            </div>
+          </CardHeader>
+          <CardBody className="px-6 pb-5">
+            <Table aria-label="คอร์สที่จัดเก็บ" removeWrapper>
+              <TableHeader>
+                <TableColumn>ชื่อคอร์ส</TableColumn>
+                <TableColumn>ชั่วโมง</TableColumn>
+                <TableColumn>ราคา</TableColumn>
+                <TableColumn>ราคา/ชม.</TableColumn>
+                <TableColumn align="center">จัดการ</TableColumn>
+              </TableHeader>
+              <TableBody>
+                {archivedCourses.map((course) => (
+                  <TableRow key={course.id} className="opacity-60">
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-gray-600">
+                          {course.name}
+                        </p>
+                        {course.description && (
+                          <p className="text-xs text-gray-400 line-clamp-1 max-w-[200px]">
+                            {course.description}
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Clock size={14} className="text-gray-400" />
+                        <span className="text-sm">{course.hours} ชม.</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm font-medium">
+                        ฿{course.price.toLocaleString()}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm font-medium text-gray-500">
+                        ฿
+                        {course.hours > 0
+                          ? Math.round(
+                              course.price / course.hours
+                            ).toLocaleString()
+                          : 0}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-center">
+                        <Button
+                          size="sm"
+                          variant="flat"
+                          color="success"
+                          startContent={<ArchiveRestore size={14} />}
+                          onPress={() => handleUnarchive(course)}
+                        >
+                          นำกลับ
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Create/Edit Modal */}
       <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="lg">

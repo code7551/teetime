@@ -5,23 +5,14 @@ import {
   Card,
   CardBody,
   Spinner,
-  Button,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Chip,
   Tabs,
   Tab,
   useDisclosure,
 } from "@heroui/react";
-import { CheckCircle, XCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { format } from "date-fns";
-import { th } from "date-fns/locale/th";
 import toast from "react-hot-toast";
-import PaymentTable, { statusConfig } from "@/components/PaymentTable";
+import PaymentTable from "@/components/PaymentTable";
+import PaymentReviewModal from "@/components/PaymentReviewModal";
 import type { Payment } from "@/types";
 
 export default function PaymentsPage() {
@@ -143,118 +134,13 @@ export default function PaymentsPage() {
         </CardBody>
       </Card>
 
-      {/* Payment Detail Modal */}
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl">
-        <ModalContent>
-          {(onModalClose) => (
-            <>
-              <ModalHeader className="text-gray-800">
-                รายละเอียดการชำระเงิน
-              </ModalHeader>
-              <ModalBody>
-                {selectedPayment && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-500">นักเรียน</p>
-                        <p className="font-medium text-gray-800">
-                          {selectedPayment.studentName ?? "-"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">คอร์ส</p>
-                        <p className="font-medium text-gray-800">
-                          {selectedPayment.courseName ?? "-"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">จำนวนเงิน</p>
-                        <p className="font-medium text-gray-800">
-                          ฿{selectedPayment.amount.toLocaleString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">ชั่วโมงที่จะได้รับ</p>
-                        <p className="font-medium text-gray-800">
-                          {selectedPayment.hoursAdded} ชั่วโมง
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">สถานะ</p>
-                        <Chip
-                          size="sm"
-                          color={
-                            statusConfig[selectedPayment.status]?.color ??
-                            "default"
-                          }
-                          variant="flat"
-                        >
-                          {statusConfig[selectedPayment.status]?.label ??
-                            selectedPayment.status}
-                        </Chip>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">วันที่ชำระ</p>
-                        <p className="font-medium text-gray-800">
-                          {format(
-                            new Date(selectedPayment.createdAt),
-                            "d MMM yyyy HH:mm",
-                            { locale: th }
-                          )}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Receipt Image */}
-                    {selectedPayment.receiptImageUrl && (
-                      <div>
-                        <p className="text-gray-500 text-sm mb-2">
-                          หลักฐานการชำระเงิน
-                        </p>
-                        <div className="border border-gray-200 rounded-xl overflow-hidden">
-                          <img
-                            src={selectedPayment.receiptImageUrl}
-                            alt="หลักฐานการชำระเงิน"
-                            className="w-full max-h-[400px] object-contain bg-gray-50"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </ModalBody>
-              <ModalFooter>
-                {selectedPayment?.status === "pending" ? (
-                  <>
-                    <Button
-                      variant="flat"
-                      color="danger"
-                      startContent={<XCircle size={18} />}
-                      onPress={() => handleAction("rejected")}
-                      isLoading={actionLoading}
-                    >
-                      ปฏิเสธ
-                    </Button>
-                    <Button
-                      color="success"
-                      startContent={<CheckCircle size={18} />}
-                      onPress={() => handleAction("approved")}
-                      isLoading={actionLoading}
-                      className="text-white"
-                    >
-                      อนุมัติ
-                    </Button>
-                  </>
-                ) : (
-                  <Button variant="flat" onPress={onModalClose}>
-                    ปิด
-                  </Button>
-                )}
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
+      <PaymentReviewModal
+        isOpen={isOpen}
+        onOpenChange={onOpenChange}
+        payment={selectedPayment}
+        actionLoading={actionLoading}
+        onAction={handleAction}
+      />
     </div>
   );
 }

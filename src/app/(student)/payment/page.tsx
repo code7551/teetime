@@ -41,7 +41,7 @@ export default function PaymentPage() {
     const fetchData = async () => {
       try {
         const [coursesRes, paymentsRes] = await Promise.all([
-          fetch("/api/courses"),
+          fetch("/api/courses?includeHidden=true"),
           fetch(`/api/payments?studentId=${student.uid}`),
         ]);
 

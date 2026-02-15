@@ -5,13 +5,17 @@ import type { Course } from "@/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Public endpoint - courses list is accessible without auth (for student LINE Mini App)
+    const { searchParams } = new URL(request.url);
+    const includeHidden = searchParams.get("includeHidden") === "true";
+
     const db = await getDb();
+    const filter = includeHidden ? {} : { isActive: { $ne: false } };
     const docs = await db
       .collection("courses")
-      .find()
+      .find(filter)
       .sort({ createdAt: -1 })
       .toArray();
 
@@ -55,6 +59,7 @@ export async function POST(request: NextRequest) {
       price,
       description: description || "",
       createdAt: new Date().toISOString(),
+      isActive: true,
     };
 
     const db = await getDb();

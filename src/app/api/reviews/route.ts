@@ -51,6 +51,30 @@ export async function GET(request: NextRequest) {
       _id: undefined,
     })) as unknown as Review[];
 
+    // Resolve studentName and proName dynamically from users collection
+    const userIds = [
+      ...new Set([
+        ...reviews.map((r) => r.studentId),
+        ...reviews.map((r) => r.proId),
+      ].filter(Boolean)),
+    ];
+    if (userIds.length > 0) {
+      const userDocs = await db
+        .collection("users")
+        .find({ uid: { $in: userIds } })
+        .project({ uid: 1, displayName: 1, nickname: 1 })
+        .toArray();
+      const userMap = new Map(
+        userDocs.map((u) => [u.uid, u.nickname || u.displayName || ""])
+      );
+      for (const review of reviews) {
+        const sName = userMap.get(review.studentId);
+        if (sName) review.studentName = sName;
+        const pName = userMap.get(review.proId);
+        if (pName) review.proName = pName;
+      }
+    }
+
     return NextResponse.json(reviews);
   } catch (error) {
     console.error("Error fetching reviews:", error);
@@ -77,8 +101,6 @@ export async function POST(request: NextRequest) {
       comment,
       videoUrl,
       imageUrls,
-      studentName,
-      proName,
       date,
     } = body;
 
@@ -103,8 +125,6 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date().toISOString(),
       ...(videoUrl !== undefined && { videoUrl: videoUrl || "" }),
       ...(imageUrls !== undefined && { imageUrls: imageUrls || [] }),
-      ...(studentName && { studentName }),
-      ...(proName && { proName }),
       ...(date && { date }),
     };
 
@@ -132,15 +152,17 @@ export async function POST(request: NextRequest) {
     // Send LINE notification (only for new reviews)
     if (isNew) {
       try {
-        const studentDoc = await db
-          .collection("users")
-          .findOne({ _id: studentId as unknown as ObjectId });
+        const [studentDoc, proDoc] = await Promise.all([
+          db.collection("users").findOne({ _id: studentId as unknown as ObjectId }),
+          db.collection("users").findOne({ _id: proId as unknown as ObjectId }),
+        ]);
         const lineUserIds: string[] = (studentDoc?.lineUserIds as string[]) || [];
+        const resolvedProName = (proDoc?.nickname as string) || (proDoc?.displayName as string) || "โปร";
 
         if (lineUserIds.length > 0) {
           await sendReviewNotificationToAll(
             lineUserIds,
-            proName || "โปร",
+            resolvedProName,
             comment,
             date || new Date().toISOString().split("T")[0]
           );

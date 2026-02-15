@@ -11,7 +11,6 @@ export interface AppUser {
   role: UserRole;
   phone: string;
   lineUserIds?: string[];
-  lineDisplayNames?: Record<string, string>;
   proId?: string;
   commissionRate?: number;
   createdAt: string;
@@ -30,6 +29,7 @@ export interface Course {
   price: number;
   description: string;
   createdAt: string;
+  isActive?: boolean; // false = soft-deleted / hidden
 }
 
 export type PaymentStatus = "pending" | "approved" | "rejected";
@@ -81,7 +81,9 @@ export interface Review {
   imageUrls?: string[];
   createdAt: string;
   updatedAt?: string;
+  /** Resolved dynamically from users collection (not stored in DB) */
   studentName?: string;
+  /** Resolved dynamically from users collection (not stored in DB) */
   proName?: string;
   date?: string;
 }

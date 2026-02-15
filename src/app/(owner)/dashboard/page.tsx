@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Card,
   CardBody,
   Spinner,
+  useDisclosure,
 } from "@heroui/react";
 import { Users, GraduationCap, CreditCard, CalendarDays } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import toast from "react-hot-toast";
 import PaymentTable from "@/components/PaymentTable";
+import PaymentReviewModal from "@/components/PaymentReviewModal";
 import type { Payment } from "@/types";
 
 interface DashboardStats {
@@ -20,42 +23,81 @@ interface DashboardStats {
 
 export default function OwnerDashboardPage() {
   const { firebaseUser } = useAuth();
+  const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [pendingPayments, setPendingPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    if (!firebaseUser) return;
+    try {
+      const token = await firebaseUser.getIdToken();
+      const headers = { Authorization: `Bearer ${token}` };
+
+      const [statsRes, paymentsRes] = await Promise.all([
+        fetch("/api/stats", { headers }),
+        fetch("/api/payments?status=pending", { headers }),
+      ]);
+
+      if (!statsRes.ok || !paymentsRes.ok) {
+        throw new Error("ไม่สามารถโหลดข้อมูลได้");
+      }
+
+      const statsData = await statsRes.json();
+      const paymentsData = await paymentsRes.json();
+
+      setStats(statsData);
+      setPendingPayments(paymentsData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+    } finally {
+      setLoading(false);
+    }
+  }, [firebaseUser]);
 
   useEffect(() => {
-    if (!firebaseUser) return;
-
-    const fetchData = async () => {
-      try {
-        const token = await firebaseUser.getIdToken();
-        const headers = { Authorization: `Bearer ${token}` };
-
-        const [statsRes, paymentsRes] = await Promise.all([
-          fetch("/api/stats", { headers }),
-          fetch("/api/payments?status=pending&limit=5", { headers }),
-        ]);
-
-        if (!statsRes.ok || !paymentsRes.ok) {
-          throw new Error("ไม่สามารถโหลดข้อมูลได้");
-        }
-
-        const statsData = await statsRes.json();
-        const paymentsData = await paymentsRes.json();
-
-        setStats(statsData);
-        setPendingPayments(paymentsData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
-  }, [firebaseUser]);
+  }, [fetchData]);
+
+  const handleViewPayment = (payment: Payment) => {
+    setSelectedPayment(payment);
+    onOpen();
+  };
+
+  const handleAction = async (status: "approved" | "rejected") => {
+    if (!firebaseUser || !selectedPayment) return;
+    setActionLoading(true);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const body: Record<string, unknown> = { status };
+      if (status === "approved") {
+        body.hoursAdded = selectedPayment.hoursAdded;
+      }
+      const res = await fetch(`/api/payments/${selectedPayment.id}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "เกิดข้อผิดพลาด");
+      }
+      onClose();
+      setSelectedPayment(null);
+      toast.success(status === "approved" ? "อนุมัติเรียบร้อย" : "ปฏิเสธเรียบร้อย");
+      fetchData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -141,10 +183,20 @@ export default function OwnerDashboardPage() {
           </h2>
           <PaymentTable
             payments={pendingPayments}
+            showActions
+            onViewPayment={handleViewPayment}
             emptyMessage="ไม่มีรายการรอตรวจสอบ"
           />
         </CardBody>
       </Card>
+
+      <PaymentReviewModal
+        isOpen={isOpen}
+        onOpenChange={onOpenChange}
+        payment={selectedPayment}
+        actionLoading={actionLoading}
+        onAction={handleAction}
+      />
     </div>
   );
 }

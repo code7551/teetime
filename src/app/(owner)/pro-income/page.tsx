@@ -5,30 +5,23 @@ import {
   Card,
   CardBody,
   Spinner,
-  Chip,
   Select,
   SelectItem,
   Button,
-  Table,
-  TableHeader,
-  TableColumn,
-  TableBody,
-  TableRow,
-  TableCell,
-  Divider,
 } from "@heroui/react";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  DollarSign,
-  Wallet,
-  CheckCircle,
-  AlertCircle,
-  CalendarDays,
-  Users,
-} from "lucide-react";
-import { format, parseISO } from "date-fns";
-import { th } from "date-fns/locale/th";
+import { DollarSign, CheckCircle, Users } from "lucide-react";
+import { format } from "date-fns";
 import { getUserDisplayName } from "@/lib/utils";
+import IncomeSummaryCards from "@/components/shared/IncomeSummaryCards";
+import IncomeBookingsTable from "@/components/shared/IncomeBookingsTable";
+import type { IncomeBookingRow } from "@/components/shared/IncomeBookingsTable";
+import {
+  calcBookingHours,
+  getBookingHourlyRate,
+  calcProIncome,
+  generateMonthOptions,
+} from "@/lib/income";
 import type { AppUser, Booking } from "@/types";
 
 export default function ProIncomePage() {
@@ -42,7 +35,9 @@ export default function ProIncomePage() {
   const [bulkUpdating, setBulkUpdating] = useState(false);
 
   const [filterProId, setFilterProId] = useState("");
-  const [filterMonth, setFilterMonth] = useState(() => format(new Date(), "yyyy-MM"));
+  const [filterMonth, setFilterMonth] = useState(() =>
+    format(new Date(), "yyyy-MM")
+  );
 
   const fetchData = useCallback(async () => {
     if (!firebaseUser) return;
@@ -83,56 +78,44 @@ export default function ProIncomePage() {
     fetchData();
   }, [fetchData]);
 
-  // Lookup maps
   const proMap = new Map(pros.map((p) => [p.uid, p]));
   const studentMap = new Map(students.map((s) => [s.uid, s]));
-
-  const calcHours = (b: Booking) => {
-    const start = new Date(`1970-01-01T${b.startTime}`).getTime();
-    const end = new Date(`1970-01-01T${b.endTime}`).getTime();
-    return (end - start) / 3600000;
-  };
-
-  const getHourlyRate = (b: Booking): number => {
-    return b.hourlyRate ?? 0;
-  };
+  const monthOptions = generateMonthOptions();
 
   const getProShare = (proId: string): number => {
     const pro = proMap.get(proId);
-    const commissionRate = pro?.commissionRate ?? 0.3;
-    return 1 - commissionRate;
+    return 1 - (pro?.commissionRate ?? 0.3);
   };
 
-  const calcProIncome = (b: Booking) => {
-    const hourlyRate = getHourlyRate(b);
-    const hours = calcHours(b);
-    return hourlyRate * hours * getProShare(b.proId);
-  };
-
-  // Generate month options (last 12 months)
-  const monthOptions: { key: string; label: string }[] = [];
-  const now = new Date();
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    monthOptions.push({
-      key: format(d, "yyyy-MM"),
-      label: format(d, "MMMM yyyy", { locale: th }),
-    });
-  }
-
-  // Summary calculations
+  // Build rows
   const completedBookings = bookings.filter((b) => b.status === "completed");
-  const totalIncome = completedBookings.reduce((acc, b) => acc + calcProIncome(b), 0);
-  const paidBookings = completedBookings.filter((b) => b.paidStatus === "paid");
-  const unpaidBookings = completedBookings.filter((b) => b.paidStatus !== "paid");
-  const totalPaid = paidBookings.reduce((acc, b) => acc + calcProIncome(b), 0);
-  const totalUnpaid = unpaidBookings.reduce((acc, b) => acc + calcProIncome(b), 0);
 
-  const sortedBookings = [...completedBookings].sort((a, b) =>
-    b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime)
+  const rows: IncomeBookingRow[] = completedBookings.map((b) => {
+    const proShare = getProShare(b.proId);
+    return {
+      booking: b,
+      hours: calcBookingHours(b),
+      hourlyRate: getBookingHourlyRate(b),
+      proShare,
+      income: calcProIncome(b, proShare),
+    };
+  });
+
+  const sortedRows = [...rows].sort(
+    (a, b) =>
+      b.booking.date.localeCompare(a.booking.date) ||
+      b.booking.startTime.localeCompare(a.booking.startTime)
   );
 
-  const togglePaidStatus = async (bookingId: string, currentStatus?: string) => {
+  // Summary
+  const totalIncome = rows.reduce((acc, r) => acc + r.income, 0);
+  const paidRows = rows.filter((r) => r.booking.paidStatus === "paid");
+  const unpaidRows = rows.filter((r) => r.booking.paidStatus !== "paid");
+
+  const togglePaidStatus = async (
+    bookingId: string,
+    currentStatus?: string
+  ) => {
     if (!firebaseUser) return;
     const newStatus = currentStatus === "paid" ? "unpaid" : "paid";
 
@@ -186,7 +169,6 @@ export default function ProIncomePage() {
           })
         )
       );
-      // Update local state
       setBookings((prev) =>
         prev.map((b) =>
           unpaid.some((u) => u.id === b.id)
@@ -243,7 +225,8 @@ export default function ProIncomePage() {
                     <Users size={14} />
                     <span>{getUserDisplayName(pro)}</span>
                     <span className="text-xs text-gray-400 ml-auto">
-                      ส่วนแบ่ง {((1 - (pro.commissionRate ?? 0.3)) * 100).toFixed(0)}%
+                      ส่วนแบ่ง{" "}
+                      {((1 - (pro.commissionRate ?? 0.3)) * 100).toFixed(0)}%
                     </span>
                   </div>
                 </SelectItem>
@@ -267,183 +250,38 @@ export default function ProIncomePage() {
               ))}
             </Select>
 
-            {unpaidBookings.length > 0 && (
+            {unpaidRows.length > 0 && (
               <Button
-              className="py-6"
+                className="py-6"
                 color="success"
                 variant="flat"
                 isLoading={bulkUpdating}
                 startContent={!bulkUpdating && <CheckCircle size={14} />}
                 onPress={markAllAsPaid}
               >
-                จ่ายทั้งหมด ({unpaidBookings.length})
+                จ่ายทั้งหมด ({unpaidRows.length})
               </Button>
             )}
           </div>
         </CardBody>
       </Card>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border border-gray-100 shadow-sm">
-          <CardBody className="flex flex-row items-center gap-4 p-5">
-            <div className="p-3 bg-blue-100 rounded-xl">
-              <Wallet className="text-blue-600" size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">รายได้โปรทั้งหมด</p>
-              <p className="text-2xl font-bold text-gray-800">
-                ฿{totalIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </p>
-            </div>
-          </CardBody>
-        </Card>
+      <IncomeSummaryCards
+        totalIncome={totalIncome}
+        totalBookings={rows.length}
+        totalPaid={paidRows.reduce((acc, r) => acc + r.income, 0)}
+        paidCount={paidRows.length}
+        totalUnpaid={unpaidRows.reduce((acc, r) => acc + r.income, 0)}
+        unpaidCount={unpaidRows.length}
+      />
 
-        <Card className="border border-green-100 shadow-sm">
-          <CardBody className="flex flex-row items-center gap-4 p-5">
-            <div className="p-3 bg-green-100 rounded-xl">
-              <CheckCircle className="text-green-600" size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">จ่ายแล้ว</p>
-              <p className="text-2xl font-bold text-green-600">
-                ฿{totalPaid.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </p>
-              <p className="text-xs text-gray-400">{paidBookings.length} นัด</p>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card className="border border-amber-100 shadow-sm">
-          <CardBody className="flex flex-row items-center gap-4 p-5">
-            <div className="p-3 bg-amber-100 rounded-xl">
-              <AlertCircle className="text-amber-600" size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">ยังไม่จ่าย</p>
-              <p className="text-2xl font-bold text-amber-600">
-                ฿{totalUnpaid.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </p>
-              <p className="text-xs text-gray-400">{unpaidBookings.length} นัด</p>
-            </div>
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* Bookings Table */}
-      <Card className="border border-gray-100 shadow-sm">
-        <CardBody className="p-5">
-          <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <CalendarDays size={18} className="text-gray-500" />
-            รายละเอียดรายนัด ({sortedBookings.length} นัด)
-          </h2>
-
-          <Divider className="mb-4" />
-
-          {sortedBookings.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <DollarSign size={40} className="mx-auto mb-2 opacity-50" />
-              <p>ไม่มีรายการในเดือนนี้</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table
-                aria-label="ตารางรายได้โปร"
-                removeWrapper
-                classNames={{
-                  th: "bg-gray-50 text-gray-600 font-semibold",
-                }}
-              >
-                <TableHeader>
-                  <TableColumn>วันที่</TableColumn>
-                  <TableColumn>โปรโค้ช</TableColumn>
-                  <TableColumn>นักเรียน</TableColumn>
-                  <TableColumn>รายละเอียด</TableColumn>
-                  <TableColumn className="text-right">รายได้โปร</TableColumn>
-                  <TableColumn className="text-center">สถานะ</TableColumn>
-                  <TableColumn className="text-center">จัดการ</TableColumn>
-                </TableHeader>
-                <TableBody>
-                  {sortedBookings.map((booking) => {
-                    const hours = calcHours(booking);
-                    const hourlyRate = getHourlyRate(booking);
-                    const proShare = getProShare(booking.proId);
-                    const income = calcProIncome(booking);
-                    const pro = proMap.get(booking.proId);
-                    const student = studentMap.get(booking.studentId);
-                    const isPaid = booking.paidStatus === "paid";
-                    const isUpdating = updatingIds.has(booking.id);
-
-                    return (
-                      <TableRow key={booking.id}>
-                        <TableCell>
-                          <p className="text-gray-700">
-                            {format(parseISO(booking.date), "d MMM yyyy", {
-                              locale: th,
-                            })}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {booking.startTime} - {booking.endTime}
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <p className="font-medium text-gray-800">
-                            {getUserDisplayName(pro, "โปร")}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            ส่วนแบ่ง {(proShare * 100).toFixed(0)}%
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <p className="text-gray-700">
-                            {getUserDisplayName(student, "นักเรียน")}
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <p className="text-gray-600 text-sm">
-                            {hours} ชม. x ฿
-                            {hourlyRate.toLocaleString(undefined, {
-                              maximumFractionDigits: 0,
-                            })}
-                            /ชม. x {(proShare * 100).toFixed(0)}%
-                          </p>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <p className="font-bold text-green-600">
-                            ฿{income.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                          </p>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Chip
-                            size="sm"
-                            variant="flat"
-                            color={isPaid ? "success" : "warning"}
-                          >
-                            {isPaid ? "จ่ายแล้ว" : "ยังไม่จ่าย"}
-                          </Chip>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            variant="flat"
-                            color={isPaid ? "default" : "success"}
-                            isLoading={isUpdating}
-                            onPress={() =>
-                              togglePaidStatus(booking.id, booking.paidStatus)
-                            }
-                          >
-                            {isPaid ? "ยกเลิก" : "จ่ายแล้ว"}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardBody>
-      </Card>
+      <IncomeBookingsTable
+        rows={sortedRows}
+        studentMap={studentMap}
+        proMap={proMap}
+        onTogglePaid={togglePaidStatus}
+        updatingIds={updatingIds}
+      />
     </div>
   );
 }

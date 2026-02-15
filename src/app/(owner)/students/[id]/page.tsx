@@ -37,7 +37,7 @@ import QRCodeDisplay from "@/components/QRCodeDisplay";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { th } from "date-fns/locale/th";
-import type { AppUser, Booking, Payment, Review, StudentHours, Course } from "@/types";
+import type { AppUser, Booking, Payment, StudentHours, Course } from "@/types";
 import { calculateAge } from "@/lib/utils";
 
 export default function StudentProfilePage() {
@@ -48,9 +48,9 @@ export default function StudentProfilePage() {
   const [scheduledBookings, setScheduledBookings] = useState<Booking[]>([]);
   const [completedBookings, setCompletedBookings] = useState<Booking[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [course, setCourse] = useState<Course | null>(null);
   const [pros, setPros] = useState<AppUser[]>([]);
+  const [lineDisplayNameMap, setLineDisplayNameMap] = useState<Record<string, string>>({});
   const [activationCode, setActivationCode] = useState("");
   const [generatingCode, setGeneratingCode] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -68,16 +68,16 @@ export default function StudentProfilePage() {
         scheduledRes,
         completedRes,
         paymentsRes,
-        reviewsRes,
         prosRes,
+        lineAccessesRes,
       ] = await Promise.all([
         fetch(`/api/users/${id}`, { headers }),
         fetch(`/api/student-hours/${id}`, { headers }),
         fetch(`/api/bookings?studentId=${id}&status=scheduled`, { headers }),
         fetch(`/api/bookings?studentId=${id}&status=completed`, { headers }),
         fetch(`/api/payments?studentId=${id}`, { headers }),
-        fetch(`/api/reviews?studentId=${id}`, { headers }),
         fetch("/api/users?role=pro", { headers }),
+        fetch("/api/line-accounts", { headers }),
       ]);
 
       if (!studentRes.ok) throw new Error("ไม่พบข้อมูลนักเรียน");
@@ -87,21 +87,32 @@ export default function StudentProfilePage() {
       const scheduledData = scheduledRes.ok ? await scheduledRes.json() : [];
       const completedData = completedRes.ok ? await completedRes.json() : [];
       const paymentsData = paymentsRes.ok ? await paymentsRes.json() : [];
-      const reviewsData = reviewsRes.ok ? await reviewsRes.json() : [];
       const prosData = prosRes.ok ? await prosRes.json() : [];
+
+      // Build LINE display name map from lineAccesses
+      if (lineAccessesRes.ok) {
+        const lineAccesses: { lineUserId: string; displayName: string }[] =
+          await lineAccessesRes.json();
+        const nameMap: Record<string, string> = {};
+        for (const access of lineAccesses) {
+          if (access.displayName) {
+            nameMap[access.lineUserId] = access.displayName;
+          }
+        }
+        setLineDisplayNameMap(nameMap);
+      }
 
       setStudent(studentData);
       setHours(hoursData);
       setScheduledBookings(scheduledData);
       setCompletedBookings(completedData);
       setPayments(paymentsData);
-      setReviews(reviewsData);
       setPros(prosData);
 
       // Fetch assigned course if any
       if (studentData.courseId) {
         try {
-          const coursesRes = await fetch("/api/courses", { headers });
+          const coursesRes = await fetch("/api/courses?includeHidden=true", { headers });
           if (coursesRes.ok) {
             const allCourses: Course[] = await coursesRes.json();
             const found = allCourses.find((c) => c.id === studentData.courseId);
@@ -327,7 +338,7 @@ export default function StudentProfilePage() {
               <div className="space-y-2">
                 {(student.lineUserIds || []).map((lineId) => {
                   const lineName =
-                    student.lineDisplayNames?.[lineId] || lineId.slice(0, 8) + "...";
+                    lineDisplayNameMap[lineId] || lineId.slice(0, 8) + "...";
                   return (
                   <div
                     key={lineId}
@@ -559,49 +570,6 @@ export default function StudentProfilePage() {
           </Card>
         </Tab>
 
-        <Tab key="reviews" title={`รีวิว (${reviews.length})`}>
-          <div className="space-y-4 mt-4">
-            {reviews.length === 0 ? (
-              <Card className="shadow-sm">
-                <CardBody>
-                  <p className="text-gray-400 text-center py-12">
-                    ยังไม่มีรีวิว
-                  </p>
-                </CardBody>
-              </Card>
-            ) : (
-              reviews.map((review) => (
-                <Card key={review.id} className="shadow-sm">
-                  <CardHeader className="pb-0 px-6 pt-5">
-                    <div className="flex justify-between w-full items-center">
-                      <p className="font-medium text-gray-800">
-                        โปรโค้ช {review.proName ?? "-"}
-                      </p>
-                      <p className="text-sm text-gray-400">
-                        {format(new Date(review.createdAt), "d MMM yyyy", {
-                          locale: th,
-                        })}
-                      </p>
-                    </div>
-                  </CardHeader>
-                  <CardBody className="px-6 pb-5">
-                    <p className="text-gray-600">{review.comment}</p>
-                    {review.videoUrl && (
-                      <a
-                        href={review.videoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-green-600 text-sm mt-2 inline-block hover:underline"
-                      >
-                        ดูวิดีโอรีวิว
-                      </a>
-                    )}
-                  </CardBody>
-                </Card>
-              ))
-            )}
-          </div>
-        </Tab>
       </Tabs>
     </div>
   );

@@ -184,8 +184,6 @@ export default function ReviewForm({ bookingId, backUrl }: ReviewFormProps) {
           comment: comment.trim(),
           videoUrl: videoUrl || "",
           imageUrls: allImageUrls,
-          studentName: studentName || "นักเรียน",
-          proName: user.displayName,
           date: booking.date,
         }),
       });

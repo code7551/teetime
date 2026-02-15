@@ -119,9 +119,9 @@ export default function ReviewsListView({ role }: ReviewsListViewProps) {
   const filteredReviews = reviews.filter((r) => {
     if (!searchText) return true;
     const lower = searchText.toLowerCase();
-    const proName = r.proName || proMap.get(r.proId)?.displayName || "";
+    const proName = r.proName || getUserDisplayName(proMap.get(r.proId));
     const studentName =
-      r.studentName || studentMap.get(r.studentId)?.displayName || "";
+      r.studentName || getUserDisplayName(studentMap.get(r.studentId));
     return (
       proName.toLowerCase().includes(lower) ||
       studentName.toLowerCase().includes(lower) ||
@@ -328,8 +328,7 @@ export default function ReviewsListView({ role }: ReviewsListViewProps) {
                 const review = reviewByBookingId.get(booking.id)!;
                 const studentName =
                   review.studentName ||
-                  studentMap.get(review.studentId)?.displayName ||
-                  "นักเรียน";
+                  getUserDisplayName(studentMap.get(review.studentId), "นักเรียน");
 
                 return (
                   <Card
@@ -459,11 +458,10 @@ export default function ReviewsListView({ role }: ReviewsListViewProps) {
                 const pro = proMap.get(review.proId);
                 const student = studentMap.get(review.studentId);
                 const proName =
-                  review.proName || pro?.displayName || "โปร";
+                  review.proName || getUserDisplayName(pro, "โปร");
                 const studentName =
                   review.studentName ||
-                  student?.displayName ||
-                  "นักเรียน";
+                  getUserDisplayName(student, "นักเรียน");
 
                 return (
                   <Card

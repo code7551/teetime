@@ -16,6 +16,7 @@ import {
   X,
   MessageCircle,
   FileEdit,
+  ScrollText,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
@@ -47,6 +48,16 @@ const ownerNav: NavItem[] = [
     label: "การชำระเงิน",
     href: "/payments",
     icon: <CreditCard size={20} />,
+  },
+  {
+    label: "บันทึกชั่วโมง",
+    href: "/audit-logs",
+    icon: <ScrollText size={20} />,
+  },
+  {
+    label: "รายได้โปร",
+    href: "/pro-income",
+    icon: <DollarSign size={20} />,
   },
   {
     label: "ตารางเรียน",

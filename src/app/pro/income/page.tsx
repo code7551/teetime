@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { DollarSign, TrendingUp, CalendarDays, Wallet } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { th } from "date-fns/locale/th";
+import { getUserDisplayName } from "@/lib/utils";
 import type { AppUser, Booking, Course } from "@/types";
 
 export default function ProIncomePage() {
@@ -86,14 +87,7 @@ export default function ProIncomePage() {
   };
 
   const getHourlyRate = (b: Booking): number => {
-    const student = studentMap.get(b.studentId);
-    if (student?.courseId) {
-      const course = courseMap.get(student.courseId);
-      if (course && course.hours > 0) {
-        return course.price / course.hours;
-      }
-    }
-    return 0;
+    return b.hourlyRate ?? 0;
   };
 
   const calcProIncome = (b: Booking) => {
@@ -295,7 +289,7 @@ export default function ProIncomePage() {
                       </TableCell>
                       <TableCell>
                         <p className="font-medium text-gray-800">
-                          {booking.studentName || student?.displayName || "นักเรียน"}
+                          {getUserDisplayName(student, "นักเรียน")}
                         </p>
                         {courseName && (
                           <p className="text-xs text-gray-400">{courseName}</p>

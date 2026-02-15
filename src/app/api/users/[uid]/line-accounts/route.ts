@@ -43,10 +43,13 @@ export async function DELETE(
       );
     }
 
-    // Remove the LINE userId from the array
+    // Remove the LINE userId from the array and clean up display name
     await usersCol.updateOne(
       { _id: uid as unknown as import("mongodb").ObjectId },
-      { $pull: { lineUserIds: lineUserId } }
+      {
+        $pull: { lineUserIds: lineUserId },
+        $unset: { [`lineDisplayNames.${lineUserId}`]: "" },
+      }
     );
 
     return NextResponse.json({ success: true });

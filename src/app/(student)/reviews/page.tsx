@@ -3,7 +3,7 @@
 import { useMiniApp } from "@/hooks/useMiniApp";
 import { useEffect, useState } from "react";
 import { Card, CardBody, Spinner } from "@heroui/react";
-import { MessageSquare, User } from "lucide-react";
+import { MessageSquare, User, X } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
@@ -14,6 +14,7 @@ export default function ReviewsPage() {
   const { student, loading: miniAppLoading, isLinked } = useMiniApp();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!student) return;
@@ -123,9 +124,51 @@ export default function ReviewsPage() {
                     </video>
                   </div>
                 )}
+
+                {/* Images */}
+                {review.imageUrls && review.imageUrls.length > 0 && (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {review.imageUrls.map((url, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setLightboxImage(url)}
+                        className="aspect-square rounded-xl overflow-hidden border border-gray-100 hover:border-emerald-300 transition-colors cursor-pointer"
+                      >
+                        <img
+                          src={url}
+                          alt={`รูปภาพ ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </CardBody>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Lightbox overlay */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 transition-colors"
+          >
+            <X size={24} />
+          </button>
+          <img
+            src={lightboxImage}
+            alt="ภาพขยาย"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>

@@ -20,6 +20,7 @@ import { CheckCircle, XCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { th } from "date-fns/locale/th";
+import toast from "react-hot-toast";
 import PaymentTable, { statusConfig } from "@/components/PaymentTable";
 import type { Payment } from "@/types";
 
@@ -29,7 +30,6 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState("");
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [activeTab, setActiveTab] = useState<string>("all");
 
@@ -44,7 +44,7 @@ export default function PaymentsPage() {
       const data = await res.json();
       setPayments(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
       setLoading(false);
     }
@@ -89,7 +89,7 @@ export default function PaymentsPage() {
       setSelectedPayment(null);
       fetchPayments();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
       setActionLoading(false);
     }
@@ -116,14 +116,6 @@ export default function PaymentsPage() {
         <h1 className="text-2xl font-bold text-gray-800">การชำระเงิน</h1>
         <p className="text-gray-500 mt-1">ตรวจสอบและจัดการรายการชำระเงิน</p>
       </div>
-
-      {error && (
-        <Card className="bg-red-50 border border-red-200">
-          <CardBody>
-            <p className="text-red-600 text-sm">{error}</p>
-          </CardBody>
-        </Card>
-      )}
 
       <Tabs
         aria-label="สถานะการชำระเงิน"

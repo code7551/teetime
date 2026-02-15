@@ -5,7 +5,6 @@ import {
   Card,
   CardBody,
   Spinner,
-  Chip,
   Input,
   Select,
   SelectItem,
@@ -18,15 +17,15 @@ import {
   CalendarDays,
   User,
   GraduationCap,
-  Video,
   Clock,
   Search,
-  ExternalLink,
   CheckCircle,
+  X,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { th } from "date-fns/locale/th";
 import { useRouter } from "next/navigation";
+import { getUserDisplayName } from "@/lib/utils";
 import type { AppUser, Booking, Review } from "@/types";
 
 // ─── Component ───────────────────────────────────────────────────────
@@ -47,6 +46,7 @@ export default function ReviewsListView({ role }: ReviewsListViewProps) {
   const [filterProId, setFilterProId] = useState("");
   const [filterStudentId, setFilterStudentId] = useState("");
   const [searchText, setSearchText] = useState("");
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!firebaseUser || !user) return;
@@ -142,7 +142,8 @@ export default function ReviewsListView({ role }: ReviewsListViewProps) {
     if (filterStudentId && b.studentId !== filterStudentId) return false;
     if (!searchText) return true;
     const lower = searchText.toLowerCase();
-    const name = b.studentName || "";
+    const student = studentMap.get(b.studentId);
+    const name = getUserDisplayName(student);
     return name.toLowerCase().includes(lower);
   });
 
@@ -270,7 +271,7 @@ export default function ReviewsListView({ role }: ReviewsListViewProps) {
                       <div className="flex items-center gap-2">
                         <GraduationCap size={15} className="text-gray-500" />
                         <span className="text-sm font-medium text-gray-800">
-                          {booking.studentName || "นักเรียน"}
+                          {getUserDisplayName(studentMap.get(booking.studentId), "นักเรียน")}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -370,19 +371,39 @@ export default function ReviewsListView({ role }: ReviewsListViewProps) {
                         {review.comment}
                       </p>
 
-                      {/* Video badge */}
-                      {review.videoUrl && (
-                        <div className="mt-3">
-                          <a
-                            href={review.videoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors"
-                          >
-                            <Video size={14} />
-                            ดูวิดีโอ
-                            <ExternalLink size={12} />
-                          </a>
+                      {/* Media: embedded video + images */}
+                      {(review.videoUrl || (review.imageUrls && review.imageUrls.length > 0)) && (
+                        <div className="mt-3 space-y-3">
+                          {review.videoUrl && (
+                            <div className="rounded-lg overflow-hidden border border-gray-200 bg-black">
+                              <video
+                                src={review.videoUrl}
+                                controls
+                                preload="metadata"
+                                className="w-full max-h-[360px]"
+                              >
+                                <track kind="captions" />
+                              </video>
+                            </div>
+                          )}
+                          {review.imageUrls && review.imageUrls.length > 0 && (
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                              {review.imageUrls.map((url, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => setLightboxImage(url)}
+                                  className="aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-green-400 transition-colors cursor-pointer"
+                                >
+                                  <img
+                                    src={url}
+                                    alt={`รูปภาพ ${idx + 1}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -492,19 +513,39 @@ export default function ReviewsListView({ role }: ReviewsListViewProps) {
                         {review.comment}
                       </p>
 
-                      {/* Video badge */}
-                      {review.videoUrl && (
-                        <div className="mt-3">
-                          <a
-                            href={review.videoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors"
-                          >
-                            <Video size={14} />
-                            ดูวิดีโอ
-                            <ExternalLink size={12} />
-                          </a>
+                      {/* Media: embedded video + images */}
+                      {(review.videoUrl || (review.imageUrls && review.imageUrls.length > 0)) && (
+                        <div className="mt-3 space-y-3">
+                          {review.videoUrl && (
+                            <div className="rounded-lg overflow-hidden border border-gray-200 bg-black">
+                              <video
+                                src={review.videoUrl}
+                                controls
+                                preload="metadata"
+                                className="w-full max-h-[360px]"
+                              >
+                                <track kind="captions" />
+                              </video>
+                            </div>
+                          )}
+                          {review.imageUrls && review.imageUrls.length > 0 && (
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                              {review.imageUrls.map((url, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => setLightboxImage(url)}
+                                  className="aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-green-400 transition-colors cursor-pointer"
+                                >
+                                  <img
+                                    src={url}
+                                    alt={`รูปภาพ ${idx + 1}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -527,6 +568,28 @@ export default function ReviewsListView({ role }: ReviewsListViewProps) {
             </div>
           )}
         </>
+      )}
+
+      {/* Lightbox overlay */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full p-2 transition-colors"
+          >
+            <X size={24} />
+          </button>
+          <img
+            src={lightboxImage}
+            alt="ภาพขยาย"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
       )}
     </div>
   );

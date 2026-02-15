@@ -115,7 +115,6 @@ export default function PaymentPage() {
           amount: assignedCourse.price,
           receiptImageUrl: uploadData.url,
           hoursAdded: assignedCourse.hours,
-          studentName: student.displayName,
           courseName: assignedCourse.name,
         }),
       });

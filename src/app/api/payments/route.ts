@@ -39,6 +39,23 @@ export async function GET(request: NextRequest) {
       _id: undefined,
     })) as unknown as Payment[];
 
+    // Resolve studentName dynamically from users collection
+    const studentIds = [...new Set(payments.map((p) => p.studentId).filter(Boolean))];
+    if (studentIds.length > 0) {
+      const userDocs = await db
+        .collection("users")
+        .find({ uid: { $in: studentIds } })
+        .project({ uid: 1, displayName: 1, nickname: 1 })
+        .toArray();
+      const userMap = new Map(
+        userDocs.map((u) => [u.uid, u.nickname || u.displayName || ""])
+      );
+      for (const payment of payments) {
+        const resolved = userMap.get(payment.studentId);
+        if (resolved) payment.studentName = resolved;
+      }
+    }
+
     return NextResponse.json(payments);
   } catch (error) {
     console.error("Error fetching payments:", error);
@@ -66,7 +83,6 @@ export async function POST(request: NextRequest) {
       amount,
       receiptImageUrl,
       hoursAdded,
-      studentName,
       courseName,
     } = body;
 
@@ -85,7 +101,6 @@ export async function POST(request: NextRequest) {
       hoursAdded,
       status: "pending",
       createdAt: new Date().toISOString(),
-      ...(studentName && { studentName }),
       ...(courseName && { courseName }),
     };
 

@@ -11,6 +11,7 @@ export interface AppUser {
   role: UserRole;
   phone: string;
   lineUserIds?: string[];
+  lineDisplayNames?: Record<string, string>;
   proId?: string;
   commissionRate?: number;
   createdAt: string;
@@ -44,6 +45,7 @@ export interface Payment {
   reviewedBy?: string;
   reviewedAt?: string;
   createdAt: string;
+  /** Resolved dynamically from users collection (not stored in DB) */
   studentName?: string;
   courseName?: string;
 }
@@ -59,8 +61,14 @@ export interface Booking {
   endTime: string;
   status: BookingStatus;
   createdAt: string;
+  hourlyRate?: number;
+  /** Resolved dynamically from users collection (not stored in DB) */
   studentName?: string;
+  /** Resolved dynamically from users collection (not stored in DB) */
   proName?: string;
+  paidStatus?: "unpaid" | "paid";
+  paidAt?: string;
+  paidBy?: string;
 }
 
 export interface Review {
@@ -70,6 +78,7 @@ export interface Review {
   proId: string;
   comment: string;
   videoUrl?: string;
+  imageUrls?: string[];
   createdAt: string;
   updatedAt?: string;
   studentName?: string;
@@ -82,4 +91,22 @@ export interface StudentHours {
   remainingHours: number;
   totalHoursPurchased: number;
   totalHoursUsed: number;
+}
+
+export type AuditAction = "hours_added" | "hours_deducted";
+
+export interface AuditLog {
+  id: string;
+  action: AuditAction;
+  studentId: string;
+  studentName?: string;
+  proId?: string;
+  proName?: string;
+  hours: number;
+  remainingHoursAfter: number;
+  referenceType: "payment" | "booking";
+  referenceId: string;
+  performedBy: string;
+  note?: string;
+  createdAt: string;
 }

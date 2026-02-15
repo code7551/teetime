@@ -42,7 +42,7 @@ export async function PUT(
       { $set: updateData }
     );
 
-    // If approving, update studentHours
+    // If approving, update studentHours and write audit log
     if (body.status === "approved") {
       const studentId = paymentDoc.studentId as string;
       const hoursAdded = paymentDoc.hoursAdded as number;
@@ -61,6 +61,31 @@ export async function PUT(
         },
         { upsert: true }
       );
+
+      // Read back updated hours for audit log
+      const updatedHours = await db
+        .collection("studentHours")
+        .findOne({ _id: studentId as unknown as ObjectId });
+      const remainingHoursAfter = (updatedHours?.remainingHours as number) ?? 0;
+
+      // Look up student name
+      const studentDoc = await db
+        .collection("users")
+        .findOne({ _id: studentId as unknown as ObjectId });
+      const studentName = (studentDoc?.displayName as string) || "";
+
+      await db.collection("auditLogs").insertOne({
+        action: "hours_added",
+        studentId,
+        studentName,
+        hours: hoursAdded,
+        remainingHoursAfter,
+        referenceType: "payment",
+        referenceId: id,
+        performedBy: decodedToken.uid,
+        note: "อนุมัติชำระเงิน",
+        createdAt: new Date().toISOString(),
+      });
     }
 
     const updated = await paymentsCol.findOne({ _id: new ObjectId(id) });

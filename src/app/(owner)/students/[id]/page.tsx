@@ -50,6 +50,7 @@ export default function StudentProfilePage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [course, setCourse] = useState<Course | null>(null);
+  const [pros, setPros] = useState<AppUser[]>([]);
   const [activationCode, setActivationCode] = useState("");
   const [generatingCode, setGeneratingCode] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -68,6 +69,7 @@ export default function StudentProfilePage() {
         completedRes,
         paymentsRes,
         reviewsRes,
+        prosRes,
       ] = await Promise.all([
         fetch(`/api/users/${id}`, { headers }),
         fetch(`/api/student-hours/${id}`, { headers }),
@@ -75,6 +77,7 @@ export default function StudentProfilePage() {
         fetch(`/api/bookings?studentId=${id}&status=completed`, { headers }),
         fetch(`/api/payments?studentId=${id}`, { headers }),
         fetch(`/api/reviews?studentId=${id}`, { headers }),
+        fetch("/api/users?role=pro", { headers }),
       ]);
 
       if (!studentRes.ok) throw new Error("ไม่พบข้อมูลนักเรียน");
@@ -85,6 +88,7 @@ export default function StudentProfilePage() {
       const completedData = completedRes.ok ? await completedRes.json() : [];
       const paymentsData = paymentsRes.ok ? await paymentsRes.json() : [];
       const reviewsData = reviewsRes.ok ? await reviewsRes.json() : [];
+      const prosData = prosRes.ok ? await prosRes.json() : [];
 
       setStudent(studentData);
       setHours(hoursData);
@@ -92,6 +96,7 @@ export default function StudentProfilePage() {
       setCompletedBookings(completedData);
       setPayments(paymentsData);
       setReviews(reviewsData);
+      setPros(prosData);
 
       // Fetch assigned course if any
       if (studentData.courseId) {
@@ -152,6 +157,11 @@ export default function StudentProfilePage() {
       </div>
     );
   }
+
+  const proMap = new Map(pros.map((p) => [p.uid, p]));
+
+  const resolveProName = (booking: Booking) =>
+    proMap.get(booking.proId)?.displayName ?? "-";
 
   const bookingStatusMap: Record<
     string,
@@ -216,25 +226,8 @@ export default function StudentProfilePage() {
                     : ""}
                 </div>
                 <div className="flex items-center gap-2">
-                  <MessageCircle size={16} className="text-gray-400" />
-                  <Chip
-                    size="sm"
-                    variant="flat"
-                    color={linkedCount > 0 ? "success" : "default"}
-                  >
-                    LINE {linkedCount} บัญชี
-                  </Chip>
-                </div>
-                <div className="flex items-center gap-2">
                   <BookOpen size={16} className="text-gray-400" />
                   คอร์ส: {course ? course.name : "-"}
-                </div>
-                <div className="flex items-center gap-2">
-                  <CalendarDays size={16} className="text-gray-400" />
-                  สร้างเมื่อ{" "}
-                  {format(new Date(student.createdAt), "d MMM yyyy", {
-                    locale: th,
-                  })}
                 </div>
               </div>
               {student.learningGoals && (
@@ -332,18 +325,18 @@ export default function StudentProfilePage() {
                 บัญชี LINE ที่เชื่อมต่อแล้ว ({linkedCount}):
               </p>
               <div className="space-y-2">
-                {(student.lineUserIds || []).map((lineId, idx) => (
+                {(student.lineUserIds || []).map((lineId) => {
+                  const lineName =
+                    student.lineDisplayNames?.[lineId] || lineId.slice(0, 8) + "...";
+                  return (
                   <div
                     key={lineId}
                     className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2"
                   >
                     <div className="flex items-center gap-2">
                       <MessageCircle size={14} className="text-green-600" />
-                      <span className="text-xs text-gray-600 font-mono">
-                        LINE #{idx + 1}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        ({lineId.slice(0, 8)}...)
+                      <span className="text-xs text-gray-700 font-medium">
+                        {lineName}
                       </span>
                     </div>
                     <Button
@@ -384,7 +377,8 @@ export default function StudentProfilePage() {
                       <Trash2 size={14} />
                     </Button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -422,7 +416,7 @@ export default function StudentProfilePage() {
                     {scheduledBookings.map((booking) => (
                       <TableRow key={booking.id}>
                         <TableCell className="font-medium">
-                          {booking.proName ?? "-"}
+                          {resolveProName(booking)}
                         </TableCell>
                         <TableCell>
                           {format(new Date(booking.date), "d MMM yyyy", {
@@ -476,7 +470,7 @@ export default function StudentProfilePage() {
                     {completedBookings.map((booking) => (
                       <TableRow key={booking.id}>
                         <TableCell className="font-medium">
-                          {booking.proName ?? "-"}
+                          {resolveProName(booking)}
                         </TableCell>
                         <TableCell>
                           {format(new Date(booking.date), "d MMM yyyy", {

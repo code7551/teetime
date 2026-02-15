@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import {
   Card,
   CardBody,
-  CardHeader,
   Spinner,
   Tabs,
   Tab,
@@ -17,7 +16,6 @@ import {
   TableCell,
   Chip,
   Avatar,
-  Divider,
 } from "@heroui/react";
 import {
   User,
@@ -29,7 +27,8 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { th } from "date-fns/locale/th";
-import type { AppUser, Booking, Review } from "@/types";
+import { getUserDisplayName } from "@/lib/utils";
+import type { AppUser, Booking } from "@/types";
 
 export default function ProProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -37,7 +36,6 @@ export default function ProProfilePage() {
   const [pro, setPro] = useState<AppUser | null>(null);
   const [students, setStudents] = useState<AppUser[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -47,11 +45,10 @@ export default function ProProfilePage() {
       const token = await firebaseUser.getIdToken();
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [proRes, studentsRes, bookingsRes, reviewsRes] = await Promise.all([
+      const [proRes, studentsRes, bookingsRes] = await Promise.all([
         fetch(`/api/users/${id}`, { headers }),
         fetch(`/api/users?role=student&proId=${id}`, { headers }),
         fetch(`/api/bookings?proId=${id}&status=completed`, { headers }),
-        fetch(`/api/reviews?proId=${id}`, { headers }),
       ]);
 
       if (!proRes.ok) throw new Error("ไม่พบข้อมูลโปรโค้ช");
@@ -59,12 +56,10 @@ export default function ProProfilePage() {
       const proData = await proRes.json();
       const studentsData = studentsRes.ok ? await studentsRes.json() : [];
       const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
-      const reviewsData = reviewsRes.ok ? await reviewsRes.json() : [];
 
       setPro(proData);
       setStudents(studentsData);
       setBookings(bookingsData);
-      setReviews(reviewsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
@@ -163,7 +158,6 @@ export default function ProProfilePage() {
                 <Table aria-label="รายชื่อนักเรียน" removeWrapper>
                   <TableHeader>
                     <TableColumn>ชื่อ</TableColumn>
-                    <TableColumn>อีเมล</TableColumn>
                     <TableColumn>เบอร์โทร</TableColumn>
                     <TableColumn>วันที่สร้าง</TableColumn>
                   </TableHeader>
@@ -171,9 +165,8 @@ export default function ProProfilePage() {
                     {students.map((student) => (
                       <TableRow key={student.uid}>
                         <TableCell className="font-medium">
-                          {student.displayName}
+                          {getUserDisplayName(student)}
                         </TableCell>
-                        <TableCell>{student.email}</TableCell>
                         <TableCell>{student.phone || "-"}</TableCell>
                         <TableCell>
                           {format(new Date(student.createdAt), "d MMM yyyy", {
@@ -209,7 +202,7 @@ export default function ProProfilePage() {
                     {bookings.map((booking) => (
                       <TableRow key={booking.id}>
                         <TableCell className="font-medium">
-                          {booking.studentName ?? "-"}
+                          {getUserDisplayName(students.find((s) => s.uid === booking.studentId), "-")}
                         </TableCell>
                         <TableCell>
                           {format(new Date(booking.date), "d MMM yyyy", {
@@ -241,50 +234,6 @@ export default function ProProfilePage() {
           </Card>
         </Tab>
 
-        {/* Tab: Reviews */}
-        <Tab key="reviews" title={`รีวิว (${reviews.length})`}>
-          <div className="space-y-4 mt-4">
-            {reviews.length === 0 ? (
-              <Card className="shadow-sm">
-                <CardBody>
-                  <p className="text-gray-400 text-center py-12">
-                    ยังไม่มีรีวิว
-                  </p>
-                </CardBody>
-              </Card>
-            ) : (
-              reviews.map((review) => (
-                <Card key={review.id} className="shadow-sm">
-                  <CardHeader className="pb-0 px-6 pt-5">
-                    <div className="flex justify-between w-full items-center">
-                      <p className="font-medium text-gray-800">
-                        {review.studentName ?? "นักเรียน"}
-                      </p>
-                      <p className="text-sm text-gray-400">
-                        {format(new Date(review.createdAt), "d MMM yyyy", {
-                          locale: th,
-                        })}
-                      </p>
-                    </div>
-                  </CardHeader>
-                  <CardBody className="px-6 pb-5">
-                    <p className="text-gray-600">{review.comment}</p>
-                    {review.videoUrl && (
-                      <a
-                        href={review.videoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-green-600 text-sm mt-2 inline-block hover:underline"
-                      >
-                        ดูวิดีโอรีวิว
-                      </a>
-                    )}
-                  </CardBody>
-                </Card>
-              ))
-            )}
-          </div>
-        </Tab>
       </Tabs>
     </div>
   );

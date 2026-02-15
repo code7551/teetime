@@ -29,7 +29,27 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ id, ...doc, _id: undefined });
+    // Resolve user names dynamically
+    const userIds = [doc.studentId, doc.proId].filter(Boolean) as string[];
+    const userDocs = await db
+      .collection("users")
+      .find({ _id: { $in: userIds.map((uid) => uid as unknown as ObjectId) } })
+      .project({ displayName: 1, nickname: 1 })
+      .toArray();
+    const userNameMap = new Map(
+      userDocs.map((u) => [
+        u._id.toString(),
+        (u.nickname as string) || (u.displayName as string) || "",
+      ])
+    );
+
+    return NextResponse.json({
+      id,
+      ...doc,
+      _id: undefined,
+      studentName: userNameMap.get(doc.studentId as string) || undefined,
+      proName: userNameMap.get(doc.proId as string) || undefined,
+    });
   } catch (error) {
     console.error("Error fetching booking:", error);
     return NextResponse.json(
@@ -48,7 +68,7 @@ export async function PUT(
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    await adminAuth.verifyIdToken(token);
+    const decodedToken = await adminAuth.verifyIdToken(token);
 
     const { id } = await params;
     const body = await request.json();
@@ -98,6 +118,39 @@ export async function PUT(
         },
         { upsert: true }
       );
+
+      // Read back updated hours for audit log
+      const updatedHours = await db
+        .collection("studentHours")
+        .findOne({ _id: studentId as unknown as ObjectId });
+      const remainingHoursAfter = (updatedHours?.remainingHours as number) ?? 0;
+
+      const proId = (bookingDoc.proId as string) || "";
+
+      // Look up names from users collection
+      const [studentUserDoc, proUserDoc] = await Promise.all([
+        db.collection("users").findOne({ _id: studentId as unknown as ObjectId }),
+        proId
+          ? db.collection("users").findOne({ _id: proId as unknown as ObjectId })
+          : Promise.resolve(null),
+      ]);
+      const studentName = (studentUserDoc?.displayName as string) || "";
+      const proName = (proUserDoc?.displayName as string) || "";
+
+      await db.collection("auditLogs").insertOne({
+        action: "hours_deducted",
+        studentId,
+        studentName,
+        proId,
+        proName,
+        hours: -hoursUsed,
+        remainingHoursAfter,
+        referenceType: "booking",
+        referenceId: id,
+        performedBy: decodedToken.uid,
+        note: "ยืนยันสอนเสร็จสิ้น",
+        createdAt: new Date().toISOString(),
+      });
     }
 
     const updated = await bookingsCol.findOne({ _id: new ObjectId(id) });

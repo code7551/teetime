@@ -14,12 +14,12 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import {
   FileEdit,
-  Upload,
   ArrowLeft,
   CalendarDays,
   User,
   Clock,
   Video,
+  ImageIcon,
   X,
   CheckCircle,
 } from "lucide-react";
@@ -38,14 +38,17 @@ interface ReviewFormProps {
 export default function ReviewForm({ bookingId, backUrl }: ReviewFormProps) {
   const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
 
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [studentName, setStudentName] = useState("");
   const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [comment, setComment] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [existingVideoUrl, setExistingVideoUrl] = useState("");
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -67,6 +70,16 @@ export default function ReviewForm({ bookingId, backUrl }: ReviewFormProps) {
         if (bookingRes.ok) {
           const data: Booking = await bookingRes.json();
           setBooking(data);
+          // Fetch student name
+          try {
+            const studentRes = await fetch(`/api/users/${data.studentId}`, { headers });
+            if (studentRes.ok) {
+              const studentData = await studentRes.json();
+              setStudentName(studentData.nickname || studentData.displayName || "นักเรียน");
+            }
+          } catch {
+            // ignore - name is optional
+          }
         } else {
           setError("ไม่พบข้อมูลการจอง");
         }
@@ -78,6 +91,7 @@ export default function ReviewForm({ bookingId, backUrl }: ReviewFormProps) {
             setExistingReview(review);
             setComment(review.comment || "");
             setExistingVideoUrl(review.videoUrl || "");
+            setExistingImageUrls(review.imageUrls || []);
           }
         }
       } catch (err) {
@@ -128,6 +142,34 @@ export default function ReviewForm({ bookingId, backUrl }: ReviewFormProps) {
         }
       }
 
+      // Upload new images
+      let allImageUrls = [...existingImageUrls];
+      if (imageFiles.length > 0) {
+        const imageUploadPromises = imageFiles.map(async (imgFile) => {
+          const formData = new FormData();
+          formData.append("file", imgFile);
+          formData.append("folder", "review-images");
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+          });
+          if (res.ok) {
+            const data = await res.json();
+            return data.url as string;
+          }
+          return null;
+        });
+        const uploadedUrls = await Promise.all(imageUploadPromises);
+        const failedCount = uploadedUrls.filter((u) => !u).length;
+        if (failedCount > 0) {
+          setError(`อัปโหลดรูปภาพไม่สำเร็จ ${failedCount} ไฟล์`);
+          setSubmitting(false);
+          return;
+        }
+        allImageUrls = [...allImageUrls, ...(uploadedUrls as string[])];
+      }
+
       // Submit review (POST handles both create and update)
       const reviewRes = await fetch("/api/reviews", {
         method: "POST",
@@ -141,8 +183,9 @@ export default function ReviewForm({ bookingId, backUrl }: ReviewFormProps) {
           proId: booking.proId,
           comment: comment.trim(),
           videoUrl: videoUrl || "",
-          studentName: booking.studentName,
-          proName: booking.proName || user.displayName,
+          imageUrls: allImageUrls,
+          studentName: studentName || "นักเรียน",
+          proName: user.displayName,
           date: booking.date,
         }),
       });
@@ -151,7 +194,9 @@ export default function ReviewForm({ bookingId, backUrl }: ReviewFormProps) {
         const savedReview = await reviewRes.json();
         setExistingReview(savedReview);
         setExistingVideoUrl(savedReview.videoUrl || "");
+        setExistingImageUrls(savedReview.imageUrls || []);
         setVideoFile(null);
+        setImageFiles([]);
         setSaved(true);
         // Auto-hide success after 3s
         setTimeout(() => setSaved(false), 3000);
@@ -167,17 +212,52 @@ export default function ReviewForm({ bookingId, backUrl }: ReviewFormProps) {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Limit to 100MB
-      if (file.size > 100 * 1024 * 1024) {
-        setError("ไฟล์วิดีโอต้องมีขนาดไม่เกิน 100MB");
-        return;
+  const handleMediaFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const newImages: File[] = [];
+    let newVideo: File | null = null;
+
+    for (const file of files) {
+      if (file.type.startsWith("video/")) {
+        if (file.size > 100 * 1024 * 1024) {
+          setError("ไฟล์วิดีโอต้องมีขนาดไม่เกิน 100MB");
+          return;
+        }
+        newVideo = file;
+      } else if (file.type.startsWith("image/")) {
+        if (file.size > 10 * 1024 * 1024) {
+          setError("ไฟล์รูปภาพแต่ละไฟล์ต้องมีขนาดไม่เกิน 10MB");
+          return;
+        }
+        newImages.push(file);
       }
-      setVideoFile(file);
-      setError("");
     }
+
+    const totalImageCount = existingImageUrls.length + imageFiles.length + newImages.length;
+    if (totalImageCount > 10) {
+      setError("อัปโหลดรูปภาพได้สูงสุด 10 รูป");
+      return;
+    }
+
+    if (newVideo) {
+      setVideoFile(newVideo);
+    }
+    if (newImages.length > 0) {
+      setImageFiles((prev) => [...prev, ...newImages]);
+    }
+    setError("");
+    // Reset input so the same file can be re-selected
+    if (mediaInputRef.current) mediaInputRef.current.value = "";
+  };
+
+  const removeExistingImage = (index: number) => {
+    setExistingImageUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeNewImage = (index: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   if (loading || dataLoading) {
@@ -250,7 +330,7 @@ export default function ReviewForm({ bookingId, backUrl }: ReviewFormProps) {
               <div>
                 <p className="text-xs text-gray-400">นักเรียน</p>
                 <p className="font-medium text-gray-800">
-                  {booking.studentName || "นักเรียน"}
+                  {studentName || "นักเรียน"}
                 </p>
               </div>
             </div>
@@ -312,83 +392,133 @@ export default function ReviewForm({ bookingId, backUrl }: ReviewFormProps) {
 
           <Divider />
 
-          {/* Video Upload */}
+          {/* Media Upload (images & video) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              วิดีโอการสอน (ไม่บังคับ)
+              รูปภาพ / วิดีโอ (ไม่บังคับ)
             </label>
 
-            {/* Show existing video URL */}
-            {existingVideoUrl && !videoFile && (
-              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200 mb-3">
-                <Video size={20} className="text-blue-600" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-blue-800">
-                    มีวิดีโออยู่แล้ว
-                  </p>
-                  <p className="text-xs text-blue-500 truncate">
-                    {existingVideoUrl}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="flat"
-                  color="primary"
-                  onPress={() => fileInputRef.current?.click()}
-                >
-                  เปลี่ยน
-                </Button>
+            {/* Media previews */}
+            {(existingVideoUrl || videoFile || existingImageUrls.length > 0 || imageFiles.length > 0) && (
+              <div className="space-y-3 mb-3">
+                {/* Existing video */}
+                {existingVideoUrl && !videoFile && (
+                  <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <Video size={20} className="text-blue-600" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-blue-800">
+                        วิดีโอ
+                      </p>
+                      <p className="text-xs text-blue-500 truncate">
+                        {existingVideoUrl}
+                      </p>
+                    </div>
+                    <Button
+                      isIconOnly
+                      size="sm"
+                      variant="light"
+                      color="danger"
+                      onPress={() => setExistingVideoUrl("")}
+                    >
+                      <X size={16} />
+                    </Button>
+                  </div>
+                )}
+
+                {/* New video file */}
+                {videoFile && (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <Video size={20} className="text-green-600" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {videoFile.name}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {(videoFile.size / (1024 * 1024)).toFixed(1)} MB
+                      </p>
+                    </div>
+                    <Button
+                      isIconOnly
+                      size="sm"
+                      variant="light"
+                      color="danger"
+                      onPress={() => setVideoFile(null)}
+                    >
+                      <X size={16} />
+                    </Button>
+                  </div>
+                )}
+
+                {/* Image grid */}
+                {(existingImageUrls.length > 0 || imageFiles.length > 0) && (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                    {/* Existing images */}
+                    {existingImageUrls.map((url, idx) => (
+                      <div key={`existing-${idx}`} className="relative group aspect-square">
+                        <img
+                          src={url}
+                          alt={`รูปภาพ ${idx + 1}`}
+                          className="w-full h-full object-cover rounded-lg border border-gray-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeExistingImage(idx)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    {/* New image files */}
+                    {imageFiles.map((file, idx) => (
+                      <div key={`new-${idx}`} className="relative group aspect-square">
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={file.name}
+                          className="w-full h-full object-cover rounded-lg border border-green-200"
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-green-600/80 text-white text-[10px] text-center py-0.5 rounded-b-lg">
+                          ใหม่
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeNewImage(idx)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
-            {videoFile ? (
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <Video size={20} className="text-green-600" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">
-                    {videoFile.name}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {(videoFile.size / (1024 * 1024)).toFixed(1)} MB
-                  </p>
-                </div>
-                <Button
-                  isIconOnly
-                  size="sm"
-                  variant="light"
-                  color="danger"
-                  onPress={() => {
-                    setVideoFile(null);
-                    if (fileInputRef.current) {
-                      fileInputRef.current.value = "";
-                    }
-                  }}
-                >
-                  <X size={16} />
-                </Button>
+            {/* Add media button */}
+            <button
+              type="button"
+              onClick={() => mediaInputRef.current?.click()}
+              className="w-full p-5 border-2 border-dashed border-gray-300 rounded-xl text-center hover:border-green-400 hover:bg-green-50/30 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center justify-center gap-3 mb-1.5">
+                <ImageIcon size={24} className="text-gray-400" />
+                <Video size={24} className="text-gray-400" />
               </div>
-            ) : !existingVideoUrl ? (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full p-6 border-2 border-dashed border-gray-300 rounded-xl text-center hover:border-green-400 hover:bg-green-50/30 transition-colors cursor-pointer"
-              >
-                <Upload size={32} className="mx-auto mb-2 text-gray-400" />
-                <p className="text-sm text-gray-500">
-                  คลิกเพื่ออัปโหลดวิดีโอ
-                </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  รองรับ MP4, MOV (สูงสุด 100MB)
-                </p>
-              </button>
-            ) : null}
+              <p className="text-sm text-gray-500">
+                คลิกเพื่อเพิ่มรูปภาพหรือวิดีโอ
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                รูปภาพ: JPG, PNG, WEBP (สูงสุด 10MB) | วิดีโอ: MP4, MOV (สูงสุด 100MB)
+              </p>
+            </button>
 
             <input
-              ref={fileInputRef}
+              ref={mediaInputRef}
               type="file"
-              accept="video/*"
+              accept="image/*,video/*"
+              multiple
               className="hidden"
-              onChange={handleFileChange}
+              onChange={handleMediaFilesChange}
             />
           </div>
 

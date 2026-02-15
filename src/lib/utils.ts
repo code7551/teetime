@@ -29,3 +29,15 @@ export const findUserByUid = ({
 }) => {
   return userDatas.find((user) => user.uid === uid);
 };
+
+/**
+ * Get the preferred display name for a user.
+ * Returns nickname if available, otherwise displayName.
+ */
+export function getUserDisplayName(
+  user: Pick<AppUser, "displayName" | "nickname"> | null | undefined,
+  fallback = "",
+): string {
+  if (!user) return fallback;
+  return user.nickname || user.displayName || fallback;
+}

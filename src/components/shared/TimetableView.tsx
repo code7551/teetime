@@ -26,7 +26,6 @@ import {
   User,
   GraduationCap,
   XCircle,
-  CheckCircle,
   CalendarDays,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -35,7 +34,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   format,
-  parseISO,
   startOfMonth,
   endOfMonth,
   startOfWeek,
@@ -47,8 +45,9 @@ import {
   subMonths,
 } from "date-fns";
 import { th } from "date-fns/locale/th";
+import toast from "react-hot-toast";
 import type { AppUser, Booking, BookingStatus } from "@/types";
-import { findUserByUid } from "@/lib/utils";
+import { findUserByUid, getUserDisplayName } from "@/lib/utils";
 
 // ─── Schema & constants ──────────────────────────────────────────────
 const createBookingSchema = z.object({
@@ -88,27 +87,17 @@ export default function TimetableView({ role }: TimetableViewProps) {
 
   // ── State ────────────────────────────────────────────────────
   const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
-  const {
-    isOpen: isCompleteOpen,
-    onOpen: onCompleteOpen,
-    onClose: onCompleteClose,
-  } = useDisclosure();
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [pros, setPros] = useState<AppUser[]>([]);
   const [students, setStudents] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [filterProId, setFilterProId] = useState("");
   const [filterStudentId, setFilterStudentId] = useState("");
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [completingId, setCompletingId] = useState<string | null>(null);
-  const [bookingToComplete, setBookingToComplete] = useState<Booking | null>(
-    null
-  );
 
   const usersLoadedRef = useRef(false);
 
@@ -169,7 +158,7 @@ export default function TimetableView({ role }: TimetableViewProps) {
       if (!res.ok) throw new Error("ไม่สามารถโหลดข้อมูลได้");
       setBookings(await res.json());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     }
   }, [firebaseUser, user, calStartStr, calEndStr, filterProId, filterStudentId, isOwner]);
 
@@ -247,37 +236,9 @@ export default function TimetableView({ role }: TimetableViewProps) {
       }
       await fetchBookings();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
       setCancellingId(null);
-    }
-  };
-
-  const handleCompleteBooking = async () => {
-    if (!bookingToComplete || !firebaseUser) return;
-    try {
-      setCompletingId(bookingToComplete.id);
-      const token = await firebaseUser.getIdToken();
-      const res = await fetch(`/api/bookings/${bookingToComplete.id}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: "completed" }),
-      });
-      if (res.ok) {
-        setBookings((prev) =>
-          prev.map((b) =>
-            b.id === bookingToComplete.id ? { ...b, status: "completed" } : b
-          )
-        );
-        onCompleteClose();
-      }
-    } catch (err) {
-      console.error("Error completing booking:", err);
-    } finally {
-      setCompletingId(null);
     }
   };
 
@@ -285,6 +246,10 @@ export default function TimetableView({ role }: TimetableViewProps) {
     reset();
     if (dateStr) {
       setValue("date", dateStr);
+    }
+    // For pro role: auto-set proId to their own uid
+    if (!isOwner && user) {
+      setValue("proId", user.uid);
     }
     onOpen();
   };
@@ -310,7 +275,7 @@ export default function TimetableView({ role }: TimetableViewProps) {
       onClose();
       fetchBookings();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
       setSubmitting(false);
     }
@@ -318,23 +283,15 @@ export default function TimetableView({ role }: TimetableViewProps) {
 
   // ── Helpers ──────────────────────────────────────────────────
   const resolveStudentName = (booking: Booking) => {
-    if (isOwner) {
-      return (
-        findUserByUid({ userDatas: students, uid: booking.studentId })
-          ?.displayName ?? "-"
-      );
-    }
-    return booking.studentName ?? "นักเรียน";
+    const student = findUserByUid({ userDatas: students, uid: booking.studentId });
+    if (student) return getUserDisplayName(student, "-");
+    return "นักเรียน";
   };
 
   const resolveProName = (booking: Booking) => {
-    if (isOwner) {
-      return (
-        findUserByUid({ userDatas: pros, uid: booking.proId })?.displayName ??
-        "-"
-      );
-    }
-    return booking.proName ?? "";
+    const pro = findUserByUid({ userDatas: pros, uid: booking.proId });
+    if (pro) return getUserDisplayName(pro, "-");
+    return "";
   };
 
   const today = new Date();
@@ -366,25 +323,15 @@ export default function TimetableView({ role }: TimetableViewProps) {
               : "จัดการตารางสอนและบันทึกผลการเรียน"}
           </p>
         </div>
-        {isOwner && (
-          <Button
-            color="success"
-            startContent={<Plus size={18} />}
-            onPress={() => handleAddBooking()}
-            className="text-white"
-          >
-            เพิ่มการจอง
-          </Button>
-        )}
+        <Button
+          color="success"
+          startContent={<Plus size={18} />}
+          onPress={() => handleAddBooking()}
+          className="text-white"
+        >
+          เพิ่มการจอง
+        </Button>
       </div>
-
-      {error && (
-        <Card className="bg-red-50 border border-red-200">
-          <CardBody>
-            <p className="text-red-600 text-sm">{error}</p>
-          </CardBody>
-        </Card>
-      )}
 
       {/* Filters */}
       <Card className="shadow-sm">
@@ -403,8 +350,8 @@ export default function TimetableView({ role }: TimetableViewProps) {
                 }}
               >
                 {pros.map((pro) => (
-                  <SelectItem key={pro.uid} textValue={pro.displayName}>
-                    {pro.displayName}
+                  <SelectItem key={pro.uid} textValue={getUserDisplayName(pro)}>
+                    {getUserDisplayName(pro)}
                   </SelectItem>
                 ))}
               </Select>
@@ -421,8 +368,8 @@ export default function TimetableView({ role }: TimetableViewProps) {
               }}
             >
               {students.map((s) => (
-                <SelectItem key={s.uid} textValue={s.displayName}>
-                  {s.displayName}
+                <SelectItem key={s.uid} textValue={getUserDisplayName(s)}>
+                  {getUserDisplayName(s)}
                 </SelectItem>
               ))}
             </Select>
@@ -545,7 +492,7 @@ export default function TimetableView({ role }: TimetableViewProps) {
                           }`}
                         >
                           {booking.startTime}{" "}
-                          {booking.studentName?.split(" ")[0] ?? ""}
+                          {resolveStudentName(booking).split(" ")[0]}
                         </div>
                       ))}
                       {dayBookings.length > 2 && (
@@ -574,17 +521,15 @@ export default function TimetableView({ role }: TimetableViewProps) {
                   { locale: th }
                 )}
               </h3>
-              {isOwner && (
-                <Button
-                  size="sm"
-                  color="success"
-                  variant="flat"
-                  startContent={<Plus size={14} />}
-                  onPress={() => handleAddBooking(selectedDay)}
-                >
-                  เพิ่ม
-                </Button>
-              )}
+              <Button
+                size="sm"
+                color="success"
+                variant="flat"
+                startContent={<Plus size={14} />}
+                onPress={() => handleAddBooking(selectedDay)}
+              >
+                เพิ่ม
+              </Button>
             </div>
 
             {selectedDayBookings.length === 0 ? (
@@ -646,36 +591,19 @@ export default function TimetableView({ role }: TimetableViewProps) {
                         </div>
                       </div>
 
-                      {/* Action buttons */}
-                      {booking.status === "scheduled" && (
+                      {/* Action buttons (owner only - cancel) */}
+                      {booking.status === "scheduled" && isOwner && (
                         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
-                          {isOwner && (
-                            <Button
-                              size="sm"
-                              color="danger"
-                              variant="flat"
-                              startContent={<XCircle size={14} />}
-                              isLoading={cancellingId === booking.id}
-                              onPress={() => handleCancelBooking(booking.id)}
-                            >
-                              ยกเลิก
-                            </Button>
-                          )}
-
-                          {!isOwner && (
-                            <Button
-                              size="sm"
-                              color="success"
-                              variant="flat"
-                              startContent={<CheckCircle size={14} />}
-                              onPress={() => {
-                                setBookingToComplete(booking);
-                                onCompleteOpen();
-                              }}
-                            >
-                              เสร็จสิ้น
-                            </Button>
-                          )}
+                          <Button
+                            size="sm"
+                            color="danger"
+                            variant="flat"
+                            startContent={<XCircle size={14} />}
+                            isLoading={cancellingId === booking.id}
+                            onPress={() => handleCancelBooking(booking.id)}
+                          >
+                            ยกเลิก
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -687,29 +615,39 @@ export default function TimetableView({ role }: TimetableViewProps) {
         </Card>
       )}
 
-      {/* Create Booking Modal (owner only) */}
-      {isOwner && (
-        <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="lg">
-          <ModalContent>
-            {(onModalClose) => (
-              <form onSubmit={handleSubmit(onSubmit)}>
-                <ModalHeader className="text-gray-800">
-                  เพิ่มการจองใหม่
-                </ModalHeader>
-                <ModalBody className="gap-4">
-                  <Select
-                    label="นักเรียน"
-                    placeholder="เลือกนักเรียน"
-                    {...register("studentId")}
-                    isInvalid={!!errors.studentId}
-                    errorMessage={errors.studentId?.message}
-                  >
-                    {students.map((s) => (
-                      <SelectItem key={s.uid} textValue={s.displayName}>
-                        {s.displayName}
-                      </SelectItem>
-                    ))}
-                  </Select>
+      {/* Create Booking Modal */}
+      <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="lg">
+        <ModalContent>
+          {(onModalClose) => (
+            <form onSubmit={handleSubmit(onSubmit)}>
+              <ModalHeader className="text-gray-800">
+                เพิ่มการจองใหม่
+              </ModalHeader>
+              <ModalBody className="gap-4">
+                <Select
+                  label="นักเรียน"
+                  placeholder="เลือกนักเรียน"
+                  {...register("studentId", {
+                    onChange: (e: React.ChangeEvent<HTMLSelectElement>) => {
+                      const selectedStudentId = e.target.value;
+                      if (isOwner && selectedStudentId) {
+                        const student = students.find((s) => s.uid === selectedStudentId);
+                        if (student?.proId) {
+                          setValue("proId", student.proId);
+                        }
+                      }
+                    },
+                  })}
+                  isInvalid={!!errors.studentId}
+                  errorMessage={errors.studentId?.message}
+                >
+                  {students.map((s) => (
+                    <SelectItem key={s.uid} textValue={getUserDisplayName(s)}>
+                      {getUserDisplayName(s)}
+                    </SelectItem>
+                  ))}
+                </Select>
+                {isOwner && (
                   <Select
                     label="โปรโค้ช"
                     placeholder="เลือกโปรโค้ช"
@@ -718,112 +656,66 @@ export default function TimetableView({ role }: TimetableViewProps) {
                     errorMessage={errors.proId?.message}
                   >
                     {pros.map((pro) => (
-                      <SelectItem key={pro.uid} textValue={pro.displayName}>
-                        {pro.displayName}
+                      <SelectItem key={pro.uid} textValue={getUserDisplayName(pro)}>
+                        {getUserDisplayName(pro)}
                       </SelectItem>
                     ))}
                   </Select>
-                  <Controller
-                    name="date"
-                    control={control}
-                    render={({ field }) => (
-                      <DatePicker
-                        label="วันที่"
-                        showMonthAndYearPickers
-                        value={field.value ? parseDate(field.value) : null}
-                        onChange={(val: CalendarDate | null) => {
-                          field.onChange(val ? val.toString() : "");
-                        }}
-                        isInvalid={!!errors.date}
-                        errorMessage={errors.date?.message}
-                      />
-                    )}
-                  />
-                  <div>
-                    <Select
-                      label="เวลาเริ่ม"
-                      placeholder="เลือกเวลา"
-                      {...register("startTime")}
-                      isInvalid={!!errors.startTime}
-                      errorMessage={errors.startTime?.message}
-                    >
-                      {TIME_SLOTS.map((time) => (
-                        <SelectItem key={time} textValue={time}>
-                          {time} น.
-                        </SelectItem>
-                      ))}
-                    </Select>
-                    <p className="text-xs text-gray-400 mt-1">
-                      * การจองแต่ละครั้ง = 1 ชั่วโมง
-                      (เวลาสิ้นสุดจะคำนวณอัตโนมัติ)
-                    </p>
-                  </div>
-                </ModalBody>
-                <ModalFooter>
-                  <Button variant="flat" onPress={onModalClose}>
-                    ยกเลิก
-                  </Button>
-                  <Button
-                    type="submit"
-                    color="success"
-                    isLoading={submitting}
-                    className="text-white"
+                )}
+                <Controller
+                  name="date"
+                  control={control}
+                  render={({ field }) => (
+                    <DatePicker
+                      label="วันที่"
+                      showMonthAndYearPickers
+                      value={field.value ? parseDate(field.value) : null}
+                      onChange={(val: CalendarDate | null) => {
+                        field.onChange(val ? val.toString() : "");
+                      }}
+                      isInvalid={!!errors.date}
+                      errorMessage={errors.date?.message}
+                    />
+                  )}
+                />
+                <div>
+                  <Select
+                    label="เวลาเริ่ม"
+                    placeholder="เลือกเวลา"
+                    {...register("startTime")}
+                    isInvalid={!!errors.startTime}
+                    errorMessage={errors.startTime?.message}
                   >
-                    สร้างการจอง
-                  </Button>
-                </ModalFooter>
-              </form>
-            )}
-          </ModalContent>
-        </Modal>
-      )}
-
-      {/* Confirm Complete Modal (pro only) */}
-      {!isOwner && (
-        <Modal isOpen={isCompleteOpen} onClose={onCompleteClose}>
-          <ModalContent>
-            <ModalHeader className="flex flex-col gap-1">
-              ยืนยันการสอนเสร็จสิ้น
-            </ModalHeader>
-            <ModalBody>
-              {bookingToComplete && (
-                <div className="space-y-2">
-                  <p className="text-gray-600">
-                    คุณต้องการยืนยันว่าการสอนนี้เสร็จสิ้นแล้วหรือไม่?
+                    {TIME_SLOTS.map((time) => (
+                      <SelectItem key={time} textValue={time}>
+                        {time} น.
+                      </SelectItem>
+                    ))}
+                  </Select>
+                  <p className="text-xs text-gray-400 mt-1">
+                    * การจองแต่ละครั้ง = 1 ชั่วโมง
+                    (เวลาสิ้นสุดจะคำนวณอัตโนมัติ)
                   </p>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <p className="font-medium">
-                      {bookingToComplete.studentName || "นักเรียน"}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {format(
-                        parseISO(bookingToComplete.date),
-                        "d MMMM yyyy",
-                        { locale: th }
-                      )}{" "}
-                      | {bookingToComplete.startTime} -{" "}
-                      {bookingToComplete.endTime}
-                    </p>
-                  </div>
                 </div>
-              )}
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="light" onPress={onCompleteClose}>
-                ยกเลิก
-              </Button>
-              <Button
-                color="success"
-                className="text-white"
-                isLoading={!!completingId}
-                onPress={handleCompleteBooking}
-              >
-                ยืนยัน
-              </Button>
-            </ModalFooter>
-          </ModalContent>
-        </Modal>
-      )}
+              </ModalBody>
+              <ModalFooter>
+                <Button variant="flat" onPress={onModalClose}>
+                  ยกเลิก
+                </Button>
+                <Button
+                  type="submit"
+                  color="success"
+                  isLoading={submitting}
+                  className="text-white"
+                >
+                  สร้างการจอง
+                </Button>
+              </ModalFooter>
+            </form>
+          )}
+        </ModalContent>
+      </Modal>
+
     </div>
   );
 }

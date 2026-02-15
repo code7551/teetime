@@ -36,6 +36,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { th } from "date-fns/locale/th";
+import toast from "react-hot-toast";
 import Link from "next/link";
 import type { AppUser, Course } from "@/types";
 
@@ -66,7 +67,6 @@ export default function StudentsPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
   const [activationCode, setActivationCode] = useState("");
   const [createdStudentName, setCreatedStudentName] = useState("");
   const [editingStudent, setEditingStudent] = useState<AppUser | null>(null);
@@ -108,7 +108,7 @@ export default function StudentsPage() {
       setPros(prosData);
       setCourses(coursesData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
       setLoading(false);
     }
@@ -196,7 +196,6 @@ export default function StudentsPage() {
   const onSubmit = async (formData: StudentFormData) => {
     if (!firebaseUser) return;
     setSubmitting(true);
-    setError("");
     try {
       const token = await firebaseUser.getIdToken();
       const avatarUrl = await uploadPhoto();
@@ -250,7 +249,7 @@ export default function StudentsPage() {
       setPhotoFile(null);
       setPhotoPreview("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
+      toast.error(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
       setSubmitting(false);
     }
@@ -281,14 +280,6 @@ export default function StudentsPage() {
         </Button>
       </div>
 
-      {error && (
-        <Card className="bg-red-50 border border-red-200">
-          <CardBody>
-            <p className="text-red-600 text-sm">{error}</p>
-          </CardBody>
-        </Card>
-      )}
-
       <Card className="shadow-sm">
         <CardBody className="p-0">
           {students.length === 0 ? (
@@ -302,7 +293,6 @@ export default function StudentsPage() {
                 <TableColumn>เบอร์โทร</TableColumn>
                 <TableColumn>โปรโค้ช</TableColumn>
                 <TableColumn>คอร์ส</TableColumn>
-                <TableColumn>LINE</TableColumn>
                 <TableColumn align="center">จัดการ</TableColumn>
               </TableHeader>
               <TableBody>
@@ -332,19 +322,6 @@ export default function StudentsPage() {
                     </TableCell>
                     <TableCell>
                       <span className="text-sm">{getCourseName(student.courseId)}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="sm"
-                        variant="flat"
-                        color={
-                          (student.lineUserIds?.length ?? 0) > 0
-                            ? "success"
-                            : "default"
-                        }
-                      >
-                        {student.lineUserIds?.length ?? 0}
-                      </Chip>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center gap-1">

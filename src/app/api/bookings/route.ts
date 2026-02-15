@@ -53,10 +53,36 @@ export async function GET(request: NextRequest) {
       .sort(sort)
       .toArray();
 
+    // Resolve user names dynamically
+    const userIds = new Set<string>();
+    docs.forEach((doc) => {
+      if (doc.proId) userIds.add(doc.proId as string);
+      if (doc.studentId) userIds.add(doc.studentId as string);
+    });
+
+    const userNameMap = new Map<string, string>();
+    if (userIds.size > 0) {
+      const userDocs = await db
+        .collection("users")
+        .find({
+          _id: {
+            $in: [...userIds].map((uid) => uid as unknown as ObjectId),
+          },
+        })
+        .project({ displayName: 1, nickname: 1 })
+        .toArray();
+      userDocs.forEach((u) => {
+        const name = (u.nickname as string) || (u.displayName as string) || "";
+        userNameMap.set(u._id.toString(), name);
+      });
+    }
+
     const bookings: Booking[] = docs.map((doc) => ({
       id: doc._id.toString(),
       ...doc,
       _id: undefined,
+      studentName: userNameMap.get(doc.studentId as string) || undefined,
+      proName: userNameMap.get(doc.proId as string) || undefined,
     })) as unknown as Booking[];
 
     return NextResponse.json(bookings);
@@ -109,14 +135,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Look up student and pro names
-    const [studentDoc, proDoc] = await Promise.all([
-      db.collection("users").findOne({ _id: studentId as unknown as ObjectId }),
-      db.collection("users").findOne({ _id: proId as unknown as ObjectId }),
-    ]);
+    // Check if the pro already has an active booking that overlaps this time slot
+    const conflictingBooking = await db.collection("bookings").findOne({
+      proId,
+      date,
+      status: { $in: ["scheduled", "completed"] },
+      startTime: { $lt: endTime },
+      endTime: { $gt: startTime },
+    });
 
-    const studentName = studentDoc?.displayName || "นักเรียน";
-    const proName = proDoc?.displayName || "โปร";
+    if (conflictingBooking) {
+      return NextResponse.json(
+        {
+          error: `โปรโค้ชมีนัดหมายแล้วในเวลา ${conflictingBooking.startTime} - ${conflictingBooking.endTime}`,
+        },
+        { status: 400 },
+      );
+    }
+
+    // Look up student to get course info for hourly rate
+    const studentDoc = await db
+      .collection("users")
+      .findOne({ _id: studentId as unknown as ObjectId });
+
+    // Calculate and store hourly rate from student's course at booking time
+    let hourlyRate = 0;
+    const courseId = studentDoc?.courseId as string | undefined;
+    if (courseId) {
+      const courseDoc = await db
+        .collection("courses")
+        .findOne({ _id: new ObjectId(courseId) });
+      if (courseDoc && (courseDoc.hours as number) > 0) {
+        hourlyRate = (courseDoc.price as number) / (courseDoc.hours as number);
+      }
+    }
 
     const bookingData: Omit<Booking, "id"> = {
       studentId,
@@ -126,8 +178,7 @@ export async function POST(request: NextRequest) {
       endTime,
       status: "scheduled",
       createdAt: new Date().toISOString(),
-      studentName,
-      proName,
+      hourlyRate,
     };
 
     const result = await db.collection("bookings").insertOne(bookingData);

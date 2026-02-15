@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { ObjectId } from "mongodb";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 import type { Booking } from "@/types";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,44 +27,44 @@ export async function GET(request: NextRequest) {
       await adminAuth.verifyIdToken(token);
     }
 
-    let query: FirebaseFirestore.Query = adminDb.collection("bookings");
-    if (proId) {
-      query = query.where("proId", "==", proId);
-    }
-    if (studentId) {
-      query = query.where("studentId", "==", studentId);
-    }
-    if (date) {
-      query = query.where("date", "==", date);
-    }
-    if (startDate) {
-      query = query.where("date", ">=", startDate);
-    }
-    if (endDate) {
-      query = query.where("date", "<=", endDate);
-    }
-    if (status) {
-      query = query.where("status", "==", status);
-    }
-    // If date range filter is used, order by date; otherwise by createdAt
+    const db = await getDb();
+    const filter: Record<string, unknown> = {};
+    if (proId) filter.proId = proId;
+    if (studentId) filter.studentId = studentId;
+    if (date) filter.date = date;
+    if (status) filter.status = status;
+
+    // Date range filters
     if (startDate || endDate) {
-      query = query.orderBy("date", "asc");
-    } else {
-      query = query.orderBy("createdAt", "desc");
+      filter.date = {
+        ...(startDate && { $gte: startDate }),
+        ...(endDate && { $lte: endDate }),
+      };
+      // If exact date was also set, date range takes precedence
     }
 
-    const snapshot = await query.get();
-    const bookings: Booking[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Booking[];
+    // If date range filter is used, order by date; otherwise by createdAt
+    const sort: Record<string, 1 | -1> =
+      startDate || endDate ? { date: 1 } : { createdAt: -1 };
+
+    const docs = await db
+      .collection("bookings")
+      .find(filter)
+      .sort(sort)
+      .toArray();
+
+    const bookings: Booking[] = docs.map((doc) => ({
+      id: doc._id.toString(),
+      ...doc,
+      _id: undefined,
+    })) as unknown as Booking[];
 
     return NextResponse.json(bookings);
   } catch (error) {
     console.error("Error fetching bookings:", error);
     return NextResponse.json(
       { error: "Failed to fetch bookings" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -81,7 +83,7 @@ export async function POST(request: NextRequest) {
     if (!studentId || !proId || !date || !startTime) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -90,36 +92,31 @@ export async function POST(request: NextRequest) {
     const endH = startH + 1;
     const endTime = `${String(endH).padStart(2, "0")}:${String(startM).padStart(2, "0")}`;
 
+    const db = await getDb();
+
     // Check student's remaining hours
-    const studentHoursDoc = await adminDb
+    const studentHoursDoc = await db
       .collection("studentHours")
-      .doc(studentId)
-      .get();
-    const remainingHours = studentHoursDoc.exists
-      ? (studentHoursDoc.data()?.remainingHours ?? 0)
-      : 0;
+      .findOne({ _id: studentId as unknown as ObjectId });
+    const remainingHours = studentHoursDoc?.remainingHours ?? 0;
 
     if (remainingHours < 1) {
       return NextResponse.json(
         {
           error: `นักเรียนมีชั่วโมงคงเหลือไม่เพียงพอ (เหลือ ${remainingHours} ชม.)`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Look up student and pro names from Firestore
+    // Look up student and pro names
     const [studentDoc, proDoc] = await Promise.all([
-      adminDb.collection("users").doc(studentId).get(),
-      adminDb.collection("users").doc(proId).get(),
+      db.collection("users").findOne({ _id: studentId as unknown as ObjectId }),
+      db.collection("users").findOne({ _id: proId as unknown as ObjectId }),
     ]);
 
-    const studentName = studentDoc.exists
-      ? studentDoc.data()?.displayName || "นักเรียน"
-      : "นักเรียน";
-    const proName = proDoc.exists
-      ? proDoc.data()?.displayName || "โปร"
-      : "โปร";
+    const studentName = studentDoc?.displayName || "นักเรียน";
+    const proName = proDoc?.displayName || "โปร";
 
     const bookingData: Omit<Booking, "id"> = {
       studentId,
@@ -133,17 +130,17 @@ export async function POST(request: NextRequest) {
       proName,
     };
 
-    const docRef = await adminDb.collection("bookings").add(bookingData);
+    const result = await db.collection("bookings").insertOne(bookingData);
 
     return NextResponse.json(
-      { id: docRef.id, ...bookingData },
-      { status: 201 }
+      { id: result.insertedId.toString(), ...bookingData },
+      { status: 201 },
     );
   } catch (error) {
     console.error("Error creating booking:", error);
     return NextResponse.json(
       { error: "Failed to create booking" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

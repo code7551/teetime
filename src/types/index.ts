@@ -28,7 +28,6 @@ export interface Course {
   hours: number;
   price: number;
   description: string;
-  isActive: boolean;
   createdAt: string;
 }
 

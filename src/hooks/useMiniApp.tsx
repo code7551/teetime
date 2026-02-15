@@ -15,6 +15,7 @@ interface LineProfile {
   userId: string;
   displayName: string;
   pictureUrl?: string;
+  email?: string;
 }
 
 interface MiniAppContextType {
@@ -88,12 +89,36 @@ export function MiniAppProvider({ children }: { children: ReactNode }) {
         }
 
         const lineProfile = await liff.getProfile();
-        const p = {
+
+        // Try to get email from the ID token (requires email scope in LIFF)
+        let email: string | undefined;
+        try {
+          const decodedToken = liff.getDecodedIDToken();
+          email = decodedToken?.email ?? undefined;
+        } catch {
+          // email scope may not be granted - silently ignore
+        }
+
+        const p: LineProfile = {
           userId: lineProfile.userId,
           displayName: lineProfile.displayName,
           pictureUrl: lineProfile.pictureUrl,
+          email,
         };
         setProfile(p);
+
+        // Log this LINE access (best-effort, non-blocking)
+        fetch("/api/line-accounts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lineUserId: p.userId,
+            displayName: p.displayName,
+            email: p.email,
+          }),
+        }).catch(() => {
+          // Non-critical - silently ignore
+        });
 
         // Check if this LINE account is already linked to a student
         await fetchStudent(p.userId);

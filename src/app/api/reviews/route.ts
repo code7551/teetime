@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { ObjectId } from "mongodb";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 import { sendReviewNotificationToAll } from "@/lib/line";
 import type { Review } from "@/types";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,30 +26,30 @@ export async function GET(request: NextRequest) {
       await adminAuth.verifyIdToken(token);
     }
 
-    let query: FirebaseFirestore.Query = adminDb.collection("reviews");
-    if (studentId) {
-      query = query.where("studentId", "==", studentId);
-    }
-    if (proId) {
-      query = query.where("proId", "==", proId);
-    }
-    if (bookingId) {
-      query = query.where("bookingId", "==", bookingId);
-    }
-    query = query.orderBy("createdAt", "desc");
+    const db = await getDb();
+    const filter: Record<string, unknown> = {};
+    if (studentId) filter.studentId = studentId;
+    if (proId) filter.proId = proId;
+    if (bookingId) filter.bookingId = bookingId;
+
+    let cursor = db
+      .collection("reviews")
+      .find(filter)
+      .sort({ createdAt: -1 });
 
     if (limitParam) {
       const limit = parseInt(limitParam, 10);
       if (!isNaN(limit) && limit > 0) {
-        query = query.limit(limit);
+        cursor = cursor.limit(limit);
       }
     }
 
-    const snapshot = await query.get();
-    const reviews: Review[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Review[];
+    const docs = await cursor.toArray();
+    const reviews: Review[] = docs.map((doc) => ({
+      id: doc._id.toString(),
+      ...doc,
+      _id: undefined,
+    })) as unknown as Review[];
 
     return NextResponse.json(reviews);
   } catch (error) {
@@ -86,12 +88,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const db = await getDb();
+    const reviewsCol = db.collection("reviews");
+
     // Check if a review already exists for this booking (upsert)
-    const existingQuery = await adminDb
-      .collection("reviews")
-      .where("bookingId", "==", bookingId)
-      .limit(1)
-      .get();
+    const existingReview = await reviewsCol.findOne({ bookingId });
 
     const reviewFields = {
       bookingId,
@@ -108,31 +109,31 @@ export async function POST(request: NextRequest) {
     let reviewId: string;
     let isNew = false;
 
-    if (!existingQuery.empty) {
+    if (existingReview) {
       // Update existing review
-      const existingDoc = existingQuery.docs[0];
-      reviewId = existingDoc.id;
-      await adminDb.collection("reviews").doc(reviewId).update(reviewFields);
+      reviewId = existingReview._id.toString();
+      await reviewsCol.updateOne(
+        { _id: existingReview._id },
+        { $set: reviewFields }
+      );
     } else {
       // Create new review
       isNew = true;
-      const reviewData: Omit<Review, "id"> = {
+      const reviewData = {
         ...reviewFields,
         createdAt: new Date().toISOString(),
       };
-      const docRef = await adminDb.collection("reviews").add(reviewData);
-      reviewId = docRef.id;
+      const result = await reviewsCol.insertOne(reviewData);
+      reviewId = result.insertedId.toString();
     }
 
     // Send LINE notification (only for new reviews)
     if (isNew) {
       try {
-        const studentDoc = await adminDb
+        const studentDoc = await db
           .collection("users")
-          .doc(studentId)
-          .get();
-        const studentData = studentDoc.data();
-        const lineUserIds: string[] = studentData?.lineUserIds || [];
+          .findOne({ _id: studentId as unknown as ObjectId });
+        const lineUserIds: string[] = (studentDoc?.lineUserIds as string[]) || [];
 
         if (lineUserIds.length > 0) {
           await sendReviewNotificationToAll(
@@ -147,9 +148,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const savedDoc = await adminDb.collection("reviews").doc(reviewId).get();
+    const savedDoc = await reviewsCol.findOne({
+      _id: existingReview?._id ?? new ObjectId(reviewId),
+    });
     return NextResponse.json(
-      { id: reviewId, ...savedDoc.data() },
+      { id: reviewId, ...savedDoc, _id: undefined },
       { status: isNew ? 201 : 200 }
     );
   } catch (error) {

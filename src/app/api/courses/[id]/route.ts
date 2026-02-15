@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { ObjectId } from "mongodb";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function PUT(
   request: NextRequest,
@@ -17,17 +19,22 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    const courseRef = adminDb.collection("courses").doc(id);
-    const courseDoc = await courseRef.get();
+    const db = await getDb();
+    const coursesCol = db.collection("courses");
 
-    if (!courseDoc.exists) {
+    const courseDoc = await coursesCol.findOne({ _id: new ObjectId(id) });
+    if (!courseDoc) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    await courseRef.update(body);
+    const { _id, ...updateData } = body;
+    await coursesCol.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData }
+    );
 
-    const updated = await courseRef.get();
-    return NextResponse.json({ id, ...updated.data() });
+    const updated = await coursesCol.findOne({ _id: new ObjectId(id) });
+    return NextResponse.json({ id, ...updated, _id: undefined });
   } catch (error) {
     console.error("Error updating course:", error);
     return NextResponse.json(
@@ -49,15 +56,15 @@ export async function DELETE(
     await adminAuth.verifyIdToken(token);
 
     const { id } = await params;
+    const db = await getDb();
+    const coursesCol = db.collection("courses");
 
-    const courseRef = adminDb.collection("courses").doc(id);
-    const courseDoc = await courseRef.get();
-
-    if (!courseDoc.exists) {
+    const courseDoc = await coursesCol.findOne({ _id: new ObjectId(id) });
+    if (!courseDoc) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    await courseRef.delete();
+    await coursesCol.deleteOne({ _id: new ObjectId(id) });
 
     return NextResponse.json({ success: true });
   } catch (error) {

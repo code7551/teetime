@@ -13,7 +13,6 @@ import {
   TableCell,
   Spinner,
   Button,
-  Chip,
   Modal,
   ModalContent,
   ModalHeader,
@@ -21,7 +20,6 @@ import {
   ModalFooter,
   Input,
   Textarea,
-  Switch,
   useDisclosure,
 } from "@heroui/react";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,7 +36,6 @@ const courseSchema = z.object({
   hours: z.number({ error: "กรุณากรอกจำนวนชั่วโมง" }).min(1, "อย่างน้อย 1 ชั่วโมง"),
   price: z.number({ error: "กรุณากรอกราคา" }).min(0, "ราคาต้องไม่ติดลบ"),
   description: z.string().optional(),
-  isActive: z.boolean(),
 });
 
 type CourseFormData = z.infer<typeof courseSchema>;
@@ -58,8 +55,6 @@ function CoursesContent() {
     register,
     handleSubmit,
     reset,
-    setValue,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<CourseFormData>({
     resolver: zodResolver(courseSchema),
@@ -68,11 +63,8 @@ function CoursesContent() {
       hours: 0,
       price: 0,
       description: "",
-      isActive: true,
     },
   });
-
-  const isActive = watch("isActive");
 
   const fetchCourses = useCallback(async () => {
     if (!firebaseUser) return;
@@ -102,7 +94,6 @@ function CoursesContent() {
       hours: 0,
       price: 0,
       description: "",
-      isActive: true,
     });
     onOpen();
   };
@@ -114,7 +105,6 @@ function CoursesContent() {
       hours: course.hours,
       price: course.price,
       description: course.description || "",
-      isActive: course.isActive,
     });
     onOpen();
   };
@@ -153,25 +143,6 @@ function CoursesContent() {
     }
   };
 
-  const handleToggleActive = async (course: Course) => {
-    if (!firebaseUser) return;
-    const token = await firebaseUser.getIdToken();
-
-    try {
-      await fetch(`/api/courses/${course.id}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ isActive: !course.isActive }),
-      });
-      fetchCourses();
-    } catch (err) {
-      console.error("Error toggling course:", err);
-    }
-  };
-
   const handleDelete = async (course: Course) => {
     if (!confirm(`ยืนยันลบคอร์ส "${course.name}"?`)) return;
     if (!firebaseUser) return;
@@ -189,8 +160,7 @@ function CoursesContent() {
   };
 
   // Stats
-  const activeCourses = courses.filter((c) => c.isActive);
-  const totalRevenuePotential = activeCourses.reduce((s, c) => s + c.price, 0);
+  const totalRevenuePotential = courses.reduce((s, c) => s + c.price, 0);
 
   if (loading) {
     return (
@@ -221,7 +191,7 @@ function CoursesContent() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card className="shadow-sm border border-gray-100">
           <CardBody className="p-4 flex flex-row items-center gap-3">
             <div className="p-2 bg-green-100 rounded-lg">
@@ -235,17 +205,6 @@ function CoursesContent() {
         </Card>
         <Card className="shadow-sm border border-gray-100">
           <CardBody className="p-4 flex flex-row items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Clock size={20} className="text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-800">{activeCourses.length}</p>
-              <p className="text-xs text-gray-500">คอร์สที่เปิดขาย</p>
-            </div>
-          </CardBody>
-        </Card>
-        <Card className="shadow-sm border border-gray-100">
-          <CardBody className="p-4 flex flex-row items-center gap-3">
             <div className="p-2 bg-orange-100 rounded-lg">
               <Banknote size={20} className="text-orange-600" />
             </div>
@@ -253,7 +212,7 @@ function CoursesContent() {
               <p className="text-2xl font-bold text-gray-800">
                 ฿{totalRevenuePotential.toLocaleString()}
               </p>
-              <p className="text-xs text-gray-500">ราคารวมคอร์สเปิดขาย</p>
+              <p className="text-xs text-gray-500">ราคารวมคอร์ส</p>
             </div>
           </CardBody>
         </Card>
@@ -287,7 +246,6 @@ function CoursesContent() {
                 <TableColumn>ชื่อคอร์ส</TableColumn>
                 <TableColumn>ชั่วโมง</TableColumn>
                 <TableColumn>ราคา</TableColumn>
-                <TableColumn>สถานะ</TableColumn>
                 <TableColumn>วันที่สร้าง</TableColumn>
                 <TableColumn align="center">จัดการ</TableColumn>
               </TableHeader>
@@ -314,17 +272,6 @@ function CoursesContent() {
                       <span className="text-sm font-medium">
                         ฿{course.price.toLocaleString()}
                       </span>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="sm"
-                        variant="flat"
-                        color={course.isActive ? "success" : "default"}
-                        className="cursor-pointer"
-                        onClick={() => handleToggleActive(course)}
-                      >
-                        {course.isActive ? "เปิดขาย" : "ปิด"}
-                      </Chip>
                     </TableCell>
                     <TableCell>
                       <span className="text-sm text-gray-500">
@@ -411,21 +358,6 @@ function CoursesContent() {
                   {...register("description")}
                   minRows={2}
                 />
-                <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">
-                      เปิดขาย
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      นักเรียนจะเห็นคอร์สนี้ในรายการ
-                    </p>
-                  </div>
-                  <Switch
-                    isSelected={isActive}
-                    onValueChange={(val) => setValue("isActive", val)}
-                    color="success"
-                  />
-                </div>
               </ModalBody>
               <ModalFooter>
                 <Button variant="flat" onPress={onModalClose}>

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { ObjectId } from "mongodb";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function PUT(
   request: NextRequest,
@@ -18,51 +19,52 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    const paymentRef = adminDb.collection("payments").doc(id);
-    const paymentDoc = await paymentRef.get();
+    const db = await getDb();
+    const paymentsCol = db.collection("payments");
 
-    if (!paymentDoc.exists) {
+    const paymentDoc = await paymentsCol.findOne({ _id: new ObjectId(id) });
+    if (!paymentDoc) {
       return NextResponse.json(
         { error: "Payment not found" },
         { status: 404 }
       );
     }
 
-    const paymentData = paymentDoc.data();
-
     // Update the payment
+    const { _id, ...updateFields } = body;
     const updateData = {
-      ...body,
+      ...updateFields,
       reviewedBy: decodedToken.uid,
       reviewedAt: new Date().toISOString(),
     };
-    await paymentRef.update(updateData);
+    await paymentsCol.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData }
+    );
 
     // If approving, update studentHours
-    if (body.status === "approved" && paymentData) {
-      const studentHoursRef = adminDb
-        .collection("studentHours")
-        .doc(paymentData.studentId);
-      const studentHoursDoc = await studentHoursRef.get();
+    if (body.status === "approved") {
+      const studentId = paymentDoc.studentId as string;
+      const hoursAdded = paymentDoc.hoursAdded as number;
 
-      if (studentHoursDoc.exists) {
-        await studentHoursRef.update({
-          remainingHours: FieldValue.increment(paymentData.hoursAdded),
-          totalHoursPurchased: FieldValue.increment(paymentData.hoursAdded),
-        });
-      } else {
-        // Create studentHours document if it doesn't exist
-        await studentHoursRef.set({
-          studentId: paymentData.studentId,
-          remainingHours: paymentData.hoursAdded,
-          totalHoursPurchased: paymentData.hoursAdded,
-          totalHoursUsed: 0,
-        });
-      }
+      await db.collection("studentHours").updateOne(
+        { _id: studentId as unknown as ObjectId },
+        {
+          $inc: {
+            remainingHours: hoursAdded,
+            totalHoursPurchased: hoursAdded,
+          },
+          $setOnInsert: {
+            studentId,
+            totalHoursUsed: 0,
+          },
+        },
+        { upsert: true }
+      );
     }
 
-    const updated = await paymentRef.get();
-    return NextResponse.json({ id, ...updated.data() });
+    const updated = await paymentsCol.findOne({ _id: new ObjectId(id) });
+    return NextResponse.json({ id, ...updated, _id: undefined });
   } catch (error) {
     console.error("Error updating payment:", error);
     return NextResponse.json(

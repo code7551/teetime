@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 import type { AppUser } from "@/types";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
@@ -16,13 +17,14 @@ export async function GET(
     await adminAuth.verifyIdToken(token);
 
     const { uid } = await params;
-    const doc = await adminDb.collection("users").doc(uid).get();
+    const db = await getDb();
+    const doc = await db.collection("users").findOne({ _id: uid as unknown as import("mongodb").ObjectId });
 
-    if (!doc.exists) {
+    if (!doc) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const user: AppUser = { uid: doc.id, ...doc.data() } as AppUser;
+    const user: AppUser = { uid: doc._id as string, ...doc, _id: undefined } as unknown as AppUser;
     return NextResponse.json(user);
   } catch (error) {
     console.error("Error fetching user:", error);
@@ -46,18 +48,24 @@ export async function PUT(
 
     const { uid } = await params;
     const body = await request.json();
+    const db = await getDb();
+    const usersCol = db.collection("users");
 
-    const doc = await adminDb.collection("users").doc(uid).get();
-    if (!doc.exists) {
+    const doc = await usersCol.findOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    if (!doc) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Update Firestore document
-    await adminDb.collection("users").doc(uid).update(body);
+    // Remove _id and uid from body to prevent overwriting
+    const { _id, uid: _uid, ...updateData } = body;
+
+    await usersCol.updateOne(
+      { _id: uid as unknown as import("mongodb").ObjectId },
+      { $set: updateData }
+    );
 
     // Update Firebase Auth display name / email if provided (only for non-student roles)
-    const userData = doc.data();
-    if (userData?.role !== "student") {
+    if (doc.role !== "student") {
       const authUpdate: Record<string, string> = {};
       if (body.displayName) authUpdate.displayName = body.displayName;
       if (body.email) authUpdate.email = body.email;
@@ -70,8 +78,8 @@ export async function PUT(
       }
     }
 
-    const updated = await adminDb.collection("users").doc(uid).get();
-    return NextResponse.json({ uid, ...updated.data() });
+    const updated = await usersCol.findOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    return NextResponse.json({ uid, ...updated, _id: undefined });
   } catch (error) {
     console.error("Error updating user:", error);
     return NextResponse.json(
@@ -93,22 +101,23 @@ export async function DELETE(
     await adminAuth.verifyIdToken(token);
 
     const { uid } = await params;
+    const db = await getDb();
+    const usersCol = db.collection("users");
 
-    const doc = await adminDb.collection("users").doc(uid).get();
-    if (!doc.exists) {
+    const doc = await usersCol.findOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    if (!doc) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Delete from Firebase Auth (only for non-student roles) and Firestore
-    const userData = doc.data();
-    if (userData?.role !== "student") {
+    // Delete from Firebase Auth (only for non-student roles) and MongoDB
+    if (doc.role !== "student") {
       try {
         await adminAuth.deleteUser(uid);
       } catch {
         // Student accounts don't have Firebase Auth records - ignore
       }
     }
-    await adminDb.collection("users").doc(uid).delete();
+    await usersCol.deleteOne({ _id: uid as unknown as import("mongodb").ObjectId });
 
     return NextResponse.json({ message: "User deleted successfully" });
   } catch (error) {

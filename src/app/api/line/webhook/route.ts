@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +29,8 @@ export async function POST(request: NextRequest) {
     const body = JSON.parse(rawBody);
     const events = body.events || [];
 
+    const db = await getDb();
+
     for (const event of events) {
       // Handle follow event -- log for reference
       if (event.type === "follow") {
@@ -36,14 +38,13 @@ export async function POST(request: NextRequest) {
 
         if (lineUserId) {
           // Check if this LINE account is already linked to a student
-          const usersSnapshot = await adminDb
+          const existingUser = await db
             .collection("users")
-            .where("lineUserIds", "array-contains", lineUserId)
-            .get();
+            .findOne({ lineUserIds: lineUserId });
 
-          if (usersSnapshot.empty) {
+          if (!existingUser) {
             // Store the follow event for tracking
-            await adminDb.collection("linePendingLinks").add({
+            await db.collection("linePendingLinks").insertOne({
               lineUserId,
               eventType: "follow",
               timestamp: new Date().toISOString(),

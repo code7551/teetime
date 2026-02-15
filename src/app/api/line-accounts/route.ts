@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 
 export const dynamic = "force-dynamic";
 
+/** Ensure TTL index exists (1 day = 86400 seconds). Called once lazily. */
+let ttlIndexEnsured = false;
+async function ensureTTLIndex() {
+  if (ttlIndexEnsured) return;
+  const db = await getDb();
+  await db
+    .collection("lineAccesses")
+    .createIndex({ accessedAt: 1 }, { expireAfterSeconds: 86400 });
+  ttlIndexEnsured = true;
+}
+
 /**
  * GET /api/line-accounts
- * Returns all students that have linked LINE accounts,
- * with each LINE userId as a separate entry for easy listing.
+ * Returns all LINE mini app access logs from the last 24 hours.
+ * Documents are auto-expired by MongoDB TTL index.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -18,46 +30,75 @@ export async function GET(request: NextRequest) {
     }
     await adminAuth.verifyIdToken(token);
 
-    // Get all students
-    const snapshot = await adminDb
-      .collection("users")
-      .where("role", "==", "student")
-      .get();
+    const db = await getDb();
+    const docs = await db
+      .collection("lineAccesses")
+      .find()
+      .sort({ accessedAt: -1 })
+      .toArray();
 
-    interface LineAccountEntry {
-      lineUserId: string;
-      studentId: string;
-      studentName: string;
-      studentNickname?: string;
-      studentPhone: string;
-      proId?: string;
-      linkedCount: number;
+    const accesses = docs.map((doc) => ({
+      id: doc._id.toString(),
+      lineUserId: doc.lineUserId,
+      displayName: doc.displayName || "",
+      email: doc.email || null,
+      accessedAt: doc.accessedAt,
+      createdAt: doc.createdAt || doc.accessedAt,
+    }));
+
+    return NextResponse.json(accesses);
+  } catch (error) {
+    console.error("Error fetching LINE accesses:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch LINE accesses" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/line-accounts
+ * Body: { lineUserId: string; displayName: string; email?: string }
+ *
+ * Logs a LINE mini app access. Each access is stored as a separate document
+ * in the "lineAccesses" collection with a TTL of 1 day (auto-deleted by MongoDB).
+ * This lets us track how many unique people interact with the app.
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const { lineUserId, displayName, email } = await request.json();
+
+    if (!lineUserId) {
+      return NextResponse.json(
+        { error: "lineUserId is required" },
+        { status: 400 }
+      );
     }
 
-    const accounts: LineAccountEntry[] = [];
+    await ensureTTLIndex();
 
-    snapshot.docs.forEach((doc) => {
-      const data = doc.data();
-      const lineUserIds: string[] = data.lineUserIds || [];
-
-      lineUserIds.forEach((lineUserId) => {
-        accounts.push({
+    const db = await getDb();
+    await db.collection("lineAccesses").updateOne(
+      { lineUserId },
+      {
+        $set: {
+          displayName: displayName || "",
+          email: email || null,
+          accessedAt: new Date(),
+        },
+        $setOnInsert: {
           lineUserId,
-          studentId: doc.id,
-          studentName: data.displayName || "",
-          studentNickname: data.nickname,
-          studentPhone: data.phone || "",
-          proId: data.proId,
-          linkedCount: lineUserIds.length,
-        });
-      });
-    });
+          createdAt: new Date(),
+        },
+      },
+      { upsert: true }
+    );
 
-    return NextResponse.json(accounts);
+    return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
-    console.error("Error fetching LINE accounts:", error);
+    console.error("Error logging LINE access:", error);
     return NextResponse.json(
-      { error: "Failed to fetch LINE accounts" },
+      { error: "Failed to log LINE access" },
       { status: 500 }
     );
   }

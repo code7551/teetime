@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 import type { Payment } from "@/types";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,20 +22,22 @@ export async function GET(request: NextRequest) {
       await adminAuth.verifyIdToken(token);
     }
 
-    let query: FirebaseFirestore.Query = adminDb.collection("payments");
-    if (status) {
-      query = query.where("status", "==", status);
-    }
-    if (studentId) {
-      query = query.where("studentId", "==", studentId);
-    }
-    query = query.orderBy("createdAt", "desc");
+    const db = await getDb();
+    const filter: Record<string, unknown> = {};
+    if (status) filter.status = status;
+    if (studentId) filter.studentId = studentId;
 
-    const snapshot = await query.get();
-    const payments: Payment[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Payment[];
+    const docs = await db
+      .collection("payments")
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    const payments: Payment[] = docs.map((doc) => ({
+      id: doc._id.toString(),
+      ...doc,
+      _id: undefined,
+    })) as unknown as Payment[];
 
     return NextResponse.json(payments);
   } catch (error) {
@@ -86,10 +89,11 @@ export async function POST(request: NextRequest) {
       ...(courseName && { courseName }),
     };
 
-    const docRef = await adminDb.collection("payments").add(paymentData);
+    const db = await getDb();
+    const result = await db.collection("payments").insertOne(paymentData);
 
     return NextResponse.json(
-      { id: docRef.id, ...paymentData },
+      { id: result.insertedId.toString(), ...paymentData },
       { status: 201 }
     );
   } catch (error) {

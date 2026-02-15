@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 import { createActivationCode } from "@/lib/jwt";
 
 export const dynamic = "force-dynamic";
@@ -23,17 +24,17 @@ export async function POST(
     await adminAuth.verifyIdToken(token);
 
     const { uid } = await params;
+    const db = await getDb();
 
-    const studentDoc = await adminDb.collection("users").doc(uid).get();
-    if (!studentDoc.exists) {
+    const studentDoc = await db.collection("users").findOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    if (!studentDoc) {
       return NextResponse.json(
         { error: "ไม่พบนักเรียน" },
         { status: 404 }
       );
     }
 
-    const studentData = studentDoc.data();
-    if (studentData?.role !== "student") {
+    if (studentDoc.role !== "student") {
       return NextResponse.json(
         { error: "ผู้ใช้นี้ไม่ใช่นักเรียน" },
         { status: 400 }
@@ -42,7 +43,7 @@ export async function POST(
 
     const activationCode = await createActivationCode(
       uid,
-      studentData?.displayName || ""
+      studentDoc.displayName || ""
     );
 
     return NextResponse.json({ activationCode });

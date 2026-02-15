@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { ObjectId } from "mongodb";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
@@ -16,17 +17,19 @@ export async function GET(
     await adminAuth.verifyIdToken(token);
 
     const { id } = await params;
-    const bookingRef = adminDb.collection("bookings").doc(id);
-    const bookingDoc = await bookingRef.get();
+    const db = await getDb();
+    const doc = await db
+      .collection("bookings")
+      .findOne({ _id: new ObjectId(id) });
 
-    if (!bookingDoc.exists) {
+    if (!doc) {
       return NextResponse.json(
         { error: "Booking not found" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ id, ...bookingDoc.data() });
+    return NextResponse.json({ id, ...doc, _id: undefined });
   } catch (error) {
     console.error("Error fetching booking:", error);
     return NextResponse.json(
@@ -49,53 +52,56 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
+    const db = await getDb();
+    const bookingsCol = db.collection("bookings");
 
-    const bookingRef = adminDb.collection("bookings").doc(id);
-    const bookingDoc = await bookingRef.get();
+    const bookingDoc = await bookingsCol.findOne({ _id: new ObjectId(id) });
 
-    if (!bookingDoc.exists) {
+    if (!bookingDoc) {
       return NextResponse.json(
         { error: "Booking not found" },
         { status: 404 }
       );
     }
 
-    const bookingData = bookingDoc.data();
+    // Remove _id from body to prevent conflicts
+    const { _id, ...updateData } = body;
 
     // Update the booking
-    await bookingRef.update(body);
+    await bookingsCol.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData }
+    );
 
     // If marking as completed, update studentHours
-    if (body.status === "completed" && bookingData) {
-      const studentHoursRef = adminDb
-        .collection("studentHours")
-        .doc(bookingData.studentId);
-      const studentHoursDoc = await studentHoursRef.get();
+    if (body.status === "completed") {
+      const studentId = bookingDoc.studentId as string;
 
       // Calculate hours from startTime and endTime
-      const start = bookingData.startTime as string;
-      const end = bookingData.endTime as string;
+      const start = bookingDoc.startTime as string;
+      const end = bookingDoc.endTime as string;
       const [startH, startM] = start.split(":").map(Number);
       const [endH, endM] = end.split(":").map(Number);
       const hoursUsed = endH - startH + (endM - startM) / 60;
 
-      if (studentHoursDoc.exists) {
-        await studentHoursRef.update({
-          remainingHours: FieldValue.increment(-hoursUsed),
-          totalHoursUsed: FieldValue.increment(hoursUsed),
-        });
-      } else {
-        await studentHoursRef.set({
-          studentId: bookingData.studentId,
-          remainingHours: -hoursUsed,
-          totalHoursPurchased: 0,
-          totalHoursUsed: hoursUsed,
-        });
-      }
+      await db.collection("studentHours").updateOne(
+        { _id: studentId as unknown as ObjectId },
+        {
+          $inc: {
+            remainingHours: -hoursUsed,
+            totalHoursUsed: hoursUsed,
+          },
+          $setOnInsert: {
+            studentId,
+            totalHoursPurchased: 0,
+          },
+        },
+        { upsert: true }
+      );
     }
 
-    const updated = await bookingRef.get();
-    return NextResponse.json({ id, ...updated.data() });
+    const updated = await bookingsCol.findOne({ _id: new ObjectId(id) });
+    return NextResponse.json({ id, ...updated, _id: undefined });
   } catch (error) {
     console.error("Error updating booking:", error);
     return NextResponse.json(

@@ -25,11 +25,13 @@ import {
   Chip,
   Snippet,
   Avatar,
+  DatePicker,
 } from "@heroui/react";
+import { CalendarDate, parseDate } from "@internationalized/date";
 import { Plus, Eye, Upload, Pencil } from "lucide-react";
 import QRCodeDisplay from "@/components/QRCodeDisplay";
 import { useAuth } from "@/hooks/useAuth";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -78,6 +80,7 @@ export default function StudentsPage() {
     handleSubmit,
     reset,
     setValue,
+    control,
     formState: { errors },
   } = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
@@ -103,7 +106,7 @@ export default function StudentsPage() {
 
       setStudents(studentsData);
       setPros(prosData);
-      setCourses(coursesData.filter((c: Course) => c.isActive));
+      setCourses(coursesData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาด");
     } finally {
@@ -456,13 +459,23 @@ export default function StudentsPage() {
                     <SelectItem key="female" textValue="หญิง">หญิง</SelectItem>
                     <SelectItem key="other" textValue="อื่นๆ">อื่นๆ</SelectItem>
                   </Select>
-                  <Input
-                    label="วันเกิด"
-                    placeholder="วัน/เดือน/ปี"
-                    type="date"
-                    {...register("birthdate")}
-                    isInvalid={!!errors.birthdate}
-                    errorMessage={errors.birthdate?.message}
+                  <Controller
+                    name="birthdate"
+                    control={control}
+                    render={({ field }) => (
+                      <DatePicker
+                        label="วันเกิด"
+                        showMonthAndYearPickers
+                        value={
+                          field.value ? parseDate(field.value) : null
+                        }
+                        onChange={(val: CalendarDate | null) => {
+                          field.onChange(val ? val.toString() : "");
+                        }}
+                        isInvalid={!!errors.birthdate}
+                        errorMessage={errors.birthdate?.message}
+                      />
+                    )}
                   />
                 </div>
 

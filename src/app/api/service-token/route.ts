@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ObjectId } from "mongodb";
 import {
   issueServiceNotificationToken,
   isServiceMessageConfigured,
 } from "@/lib/line-service-message";
+import { getDb } from "@/lib/mongodb";
 
 export const dynamic = "force-dynamic";
 
@@ -35,22 +37,22 @@ export async function POST(request: NextRequest) {
 
     const tokenData = await issueServiceNotificationToken(liffAccessToken);
 
-    // Store the service notification token in Firestore for later use
+    // Store the service notification token in MongoDB for later use
     if (studentId) {
-      const { adminDb } = await import("@/lib/firebase-admin");
-      await adminDb
-        .collection("serviceTokens")
-        .doc(studentId)
-        .set(
-          {
+      const db = await getDb();
+      await db.collection("serviceTokens").updateOne(
+        { _id: studentId as unknown as ObjectId },
+        {
+          $set: {
             notificationToken: tokenData.notificationToken,
             expiresIn: tokenData.expiresIn,
             remainingCount: tokenData.remainingCount,
             sessionId: tokenData.sessionId,
             createdAt: new Date().toISOString(),
           },
-          { merge: true }
-        );
+        },
+        { upsert: true }
+      );
     }
 
     return NextResponse.json({ success: true });

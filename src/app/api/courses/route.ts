@@ -1,21 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 import type { Course } from "@/types";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     // Public endpoint - courses list is accessible without auth (for student LINE Mini App)
-    const snapshot = await adminDb
+    const db = await getDb();
+    const docs = await db
       .collection("courses")
-      .orderBy("createdAt", "desc")
-      .get();
+      .find()
+      .sort({ createdAt: -1 })
+      .toArray();
 
-    const courses: Course[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Course[];
+    const courses: Course[] = docs.map((doc) => ({
+      id: doc._id.toString(),
+      ...doc,
+      _id: undefined,
+    })) as unknown as Course[];
 
     return NextResponse.json(courses);
   } catch (error) {
@@ -36,7 +40,7 @@ export async function POST(request: NextRequest) {
     await adminAuth.verifyIdToken(token);
 
     const body = await request.json();
-    const { name, hours, price, description, isActive } = body;
+    const { name, hours, price, description } = body;
 
     if (!name || hours === undefined || price === undefined) {
       return NextResponse.json(
@@ -50,14 +54,14 @@ export async function POST(request: NextRequest) {
       hours,
       price,
       description: description || "",
-      isActive: isActive !== undefined ? isActive : true,
       createdAt: new Date().toISOString(),
     };
 
-    const docRef = await adminDb.collection("courses").add(courseData);
+    const db = await getDb();
+    const result = await db.collection("courses").insertOne(courseData);
 
     return NextResponse.json(
-      { id: docRef.id, ...courseData },
+      { id: result.insertedId.toString(), ...courseData },
       { status: 201 }
     );
   } catch (error) {

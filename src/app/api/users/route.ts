@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { ObjectId } from "mongodb";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 import { createActivationCode } from "@/lib/jwt";
 import type { AppUser, UserRole } from "@/types";
 
@@ -22,30 +24,34 @@ export async function GET(request: NextRequest) {
       await adminAuth.verifyIdToken(token);
     }
 
+    const db = await getDb();
+    const usersCol = db.collection("users");
+
     // If lineUserId is provided, find student whose lineUserIds array contains it
     if (lineUserId) {
-      const snapshot = await adminDb
-        .collection("users")
-        .where("lineUserIds", "array-contains", lineUserId)
+      const docs = await usersCol
+        .find({ lineUserIds: lineUserId })
         .limit(1)
-        .get();
-      const users = snapshot.docs.map(
-        (doc) => ({ uid: doc.id, ...doc.data() }) as AppUser
+        .toArray();
+      const users = docs.map(
+        (doc) => ({ uid: doc._id as string, ...doc, _id: undefined }) as unknown as AppUser
       );
       return NextResponse.json(users);
     }
 
-    let query: FirebaseFirestore.Query = adminDb.collection("users");
-    if (role) {
-      query = query.where("role", "==", role);
-    }
-    query = query.orderBy("createdAt", "desc");
+    const filter: Record<string, unknown> = {};
+    if (role) filter.role = role;
 
-    const snapshot = await query.get();
-    const users: AppUser[] = snapshot.docs.map((doc) => ({
-      uid: doc.id,
-      ...doc.data(),
-    })) as AppUser[];
+    const docs = await usersCol
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    const users: AppUser[] = docs.map((doc) => ({
+      uid: doc._id as string,
+      ...doc,
+      _id: undefined,
+    })) as unknown as AppUser[];
 
     return NextResponse.json(users);
   } catch (error) {
@@ -93,13 +99,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const db = await getDb();
+    const usersCol = db.collection("users");
+
     if (role === "student") {
       // Students don't get Firebase Auth accounts
-      // Create Firestore doc with auto-generated ID
       const computedDisplayName =
         displayName || [firstName, lastName].filter(Boolean).join(" ") || "นักเรียน";
 
+      const studentId = new ObjectId().toHexString();
+
       const studentData: Record<string, unknown> = {
+        _id: studentId,
         displayName: computedDisplayName,
         role: "student",
         phone: phone || "",
@@ -116,27 +127,33 @@ export async function POST(request: NextRequest) {
         ...(courseId && { courseId }),
       };
 
-      const docRef = await adminDb.collection("users").add(studentData);
-      const studentId = docRef.id;
+      await usersCol.insertOne(studentData);
 
       // Generate activation code JWT
       const activationCode = await createActivationCode(
         studentId,
-        displayName
+        computedDisplayName
       );
 
       // Initialize student hours
-      await adminDb.collection("studentHours").doc(studentId).set({
-        studentId,
-        remainingHours: 0,
-        totalHoursPurchased: 0,
-        totalHoursUsed: 0,
-      });
+      await db.collection("studentHours").updateOne(
+        { _id: studentId as unknown as ObjectId },
+        {
+          $set: {
+            studentId,
+            remainingHours: 0,
+            totalHoursPurchased: 0,
+            totalHoursUsed: 0,
+          },
+        },
+        { upsert: true }
+      );
 
+      const { _id, ...rest } = studentData;
       return NextResponse.json(
         {
           uid: studentId,
-          ...studentData,
+          ...rest,
           activationCode,
         },
         { status: 201 }
@@ -158,6 +175,7 @@ export async function POST(request: NextRequest) {
     });
 
     const userData: Record<string, unknown> = {
+      _id: userRecord.uid,
       email,
       displayName,
       role,
@@ -167,10 +185,11 @@ export async function POST(request: NextRequest) {
       ...(commissionRate !== undefined && { commissionRate }),
     };
 
-    await adminDb.collection("users").doc(userRecord.uid).set(userData);
+    await usersCol.insertOne(userData);
 
+    const { _id, ...rest } = userData;
     return NextResponse.json(
-      { uid: userRecord.uid, ...userData },
+      { uid: userRecord.uid, ...rest },
       { status: 201 }
     );
   } catch (error) {

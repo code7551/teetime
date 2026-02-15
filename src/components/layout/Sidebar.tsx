@@ -77,9 +77,14 @@ const proNav: NavItem[] = [
     icon: <GraduationCap size={20} />,
   },
   {
-    label: "ตารางเรียน",
+    label: "ตารางสอน",
     href: "/pro/timetable",
     icon: <CalendarDays size={20} />,
+  },
+  {
+    label: "รีวิวการสอน",
+    href: "/pro/reviews",
+    icon: <FileEdit size={20} />,
   },
   {
     label: "รายได้",

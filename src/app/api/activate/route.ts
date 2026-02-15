@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
+import { ObjectId } from "mongodb";
+import { getDb } from "@/lib/mongodb";
 import { verifyActivationCode } from "@/lib/jwt";
-import { FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   try {
-    const { code, lineUserId, lineDisplayName } = await request.json();
+    const { code, lineUserId } = await request.json();
 
     if (!code || !lineUserId) {
       return NextResponse.json(
@@ -35,18 +35,21 @@ export async function POST(request: NextRequest) {
     }
 
     const { studentId } = payload;
+    const db = await getDb();
+    const usersCol = db.collection("users");
 
     // Check student exists
-    const studentDoc = await adminDb.collection("users").doc(studentId).get();
-    if (!studentDoc.exists) {
+    const studentDoc = await usersCol.findOne({
+      _id: studentId as unknown as ObjectId,
+    });
+    if (!studentDoc) {
       return NextResponse.json(
         { error: "ไม่พบข้อมูลนักเรียน" },
         { status: 404 }
       );
     }
 
-    const studentData = studentDoc.data();
-    if (studentData?.role !== "student") {
+    if (studentDoc.role !== "student") {
       return NextResponse.json(
         { error: "รหัสนี้ไม่ใช่ของนักเรียน" },
         { status: 400 }
@@ -54,32 +57,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if this LINE account is already linked to this student
-    const existingIds: string[] = studentData?.lineUserIds || [];
+    const existingIds: string[] = (studentDoc.lineUserIds as string[]) || [];
     if (existingIds.includes(lineUserId)) {
       return NextResponse.json({
         success: true,
         message: "บัญชี LINE นี้เชื่อมต่อกับนักเรียนแล้ว",
-        student: { uid: studentId, ...studentData },
+        student: { uid: studentId, ...studentDoc, _id: undefined },
       });
     }
 
     // Add the LINE userId to the student's lineUserIds array
-    await adminDb
-      .collection("users")
-      .doc(studentId)
-      .update({
-        lineUserIds: FieldValue.arrayUnion(lineUserId),
-      });
+    await usersCol.updateOne(
+      { _id: studentId as unknown as ObjectId },
+      { $addToSet: { lineUserIds: lineUserId } }
+    );
 
-    const updatedDoc = await adminDb
-      .collection("users")
-      .doc(studentId)
-      .get();
+    const updatedDoc = await usersCol.findOne({
+      _id: studentId as unknown as ObjectId,
+    });
 
     return NextResponse.json({
       success: true,
       message: "เชื่อมต่อบัญชี LINE สำเร็จ!",
-      student: { uid: studentId, ...updatedDoc.data() },
+      student: { uid: studentId, ...updatedDoc, _id: undefined },
     });
   } catch (error) {
     console.error("Error activating student:", error);

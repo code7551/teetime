@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +32,11 @@ export async function DELETE(
       );
     }
 
-    const studentDoc = await adminDb.collection("users").doc(uid).get();
-    if (!studentDoc.exists) {
+    const db = await getDb();
+    const usersCol = db.collection("users");
+
+    const studentDoc = await usersCol.findOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    if (!studentDoc) {
       return NextResponse.json(
         { error: "Student not found" },
         { status: 404 }
@@ -41,12 +44,10 @@ export async function DELETE(
     }
 
     // Remove the LINE userId from the array
-    await adminDb
-      .collection("users")
-      .doc(uid)
-      .update({
-        lineUserIds: FieldValue.arrayRemove(lineUserId),
-      });
+    await usersCol.updateOne(
+      { _id: uid as unknown as import("mongodb").ObjectId },
+      { $pull: { lineUserIds: lineUserId } }
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {

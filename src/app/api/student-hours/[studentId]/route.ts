@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
+import { ObjectId } from "mongodb";
+import { getDb } from "@/lib/mongodb";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
@@ -9,13 +10,13 @@ export async function GET(
 ) {
   try {
     const { studentId } = await params;
+    const db = await getDb();
 
-    const doc = await adminDb
+    const doc = await db
       .collection("studentHours")
-      .doc(studentId)
-      .get();
+      .findOne({ _id: studentId as unknown as ObjectId });
 
-    if (!doc.exists) {
+    if (!doc) {
       return NextResponse.json({
         studentId,
         remainingHours: 0,
@@ -24,7 +25,7 @@ export async function GET(
       });
     }
 
-    return NextResponse.json({ studentId, ...doc.data() });
+    return NextResponse.json({ studentId, ...doc, _id: undefined });
   } catch (error) {
     console.error("Error fetching student hours:", error);
     return NextResponse.json(

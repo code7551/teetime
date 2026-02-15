@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminAuth } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/mongodb";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,28 +12,9 @@ export async function GET(request: NextRequest) {
     }
     await adminAuth.verifyIdToken(token);
 
-    // Get total pros
-    const prosSnapshot = await adminDb
-      .collection("users")
-      .where("role", "==", "pro")
-      .get();
-    const totalPros = prosSnapshot.size;
+    const db = await getDb();
 
-    // Get total students
-    const studentsSnapshot = await adminDb
-      .collection("users")
-      .where("role", "==", "student")
-      .get();
-    const totalStudents = studentsSnapshot.size;
-
-    // Get pending payments count
-    const pendingPaymentsSnapshot = await adminDb
-      .collection("payments")
-      .where("status", "==", "pending")
-      .get();
-    const pendingPayments = pendingPaymentsSnapshot.size;
-
-    // Get bookings this month
+    // Run all count queries in parallel
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       .toISOString()
@@ -41,12 +23,15 @@ export async function GET(request: NextRequest) {
       .toISOString()
       .split("T")[0];
 
-    const bookingsThisMonthSnapshot = await adminDb
-      .collection("bookings")
-      .where("date", ">=", startOfMonth)
-      .where("date", "<=", endOfMonth)
-      .get();
-    const bookingsThisMonth = bookingsThisMonthSnapshot.size;
+    const [totalPros, totalStudents, pendingPayments, bookingsThisMonth] =
+      await Promise.all([
+        db.collection("users").countDocuments({ role: "pro" }),
+        db.collection("users").countDocuments({ role: "student" }),
+        db.collection("payments").countDocuments({ status: "pending" }),
+        db.collection("bookings").countDocuments({
+          date: { $gte: startOfMonth, $lte: endOfMonth },
+        }),
+      ]);
 
     return NextResponse.json({
       totalPros,

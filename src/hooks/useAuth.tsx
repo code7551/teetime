@@ -13,8 +13,7 @@ import {
   signOut as firebaseSignOut,
   User as FirebaseUser,
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 import type { AppUser } from "@/types";
 
 interface AuthContextType {
@@ -42,11 +41,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
-        const snap = await getDoc(doc(db, "users", fbUser.uid));
-        
-        if (snap.exists()) {
-          setUser({ uid: snap.id, ...snap.data() } as AppUser);
-        } else {
+        try {
+          const token = await fbUser.getIdToken();
+          const res = await fetch(`/api/users/${fbUser.uid}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const userData = await res.json();
+            setUser(userData as AppUser);
+          } else {
+            setUser(null);
+          }
+        } catch {
           setUser(null);
         }
       } else {

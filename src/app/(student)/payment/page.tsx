@@ -48,7 +48,7 @@ export default function PaymentPage() {
         if (coursesRes.ok && student.courseId) {
           const allCourses: Course[] = await coursesRes.json();
           const found = allCourses.find(
-            (c) => c.id === student.courseId && c.isActive
+            (c) => c.id === student.courseId
           );
           setAssignedCourse(found || null);
         }

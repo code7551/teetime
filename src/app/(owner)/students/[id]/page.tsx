@@ -418,7 +418,7 @@ export default function StudentProfilePage() {
               ) : (
                 <Table aria-label="ตารางเรียน" removeWrapper>
                   <TableHeader>
-                    <TableColumn>โปรโค้ช</TableColumn>
+                    <TableColumn>โปร</TableColumn>
                     <TableColumn>วันที่</TableColumn>
                     <TableColumn>เวลา</TableColumn>
                     <TableColumn>สถานะ</TableColumn>
@@ -472,7 +472,7 @@ export default function StudentProfilePage() {
               ) : (
                 <Table aria-label="ประวัติการเรียน" removeWrapper>
                   <TableHeader>
-                    <TableColumn>โปรโค้ช</TableColumn>
+                    <TableColumn>โปร</TableColumn>
                     <TableColumn>วันที่</TableColumn>
                     <TableColumn>เวลา</TableColumn>
                     <TableColumn>สถานะ</TableColumn>

@@ -26,13 +26,13 @@ import {
   DatePicker,
 } from "@heroui/react";
 import { CalendarDate, parseDate } from "@internationalized/date";
-import { Plus, Eye, Upload, Pencil } from "lucide-react";
+import { Plus, Upload, Pencil } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { AppUser, Course } from "@/types";
 
 const studentSchema = z.object({
@@ -43,13 +43,14 @@ const studentSchema = z.object({
   gender: z.string().min(1, "กรุณาเลือกเพศ"),
   birthdate: z.string().min(1, "กรุณากรอกวันเกิด"),
   learningGoals: z.string().optional(),
-  proId: z.string().min(1, "กรุณาเลือกโปรโค้ช"),
+  proId: z.string().min(1, "กรุณาเลือกโปร"),
   courseId: z.string().optional(),
 });
 
 type StudentFormData = z.infer<typeof studentSchema>;
 
 export default function StudentsPage() {
+  const router = useRouter();
   const { firebaseUser } = useAuth();
   const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
   
@@ -277,13 +278,17 @@ export default function StudentsPage() {
               <TableHeader>
                 <TableColumn>นักเรียน</TableColumn>
                 <TableColumn>เบอร์โทร</TableColumn>
-                <TableColumn>โปรโค้ช</TableColumn>
+                <TableColumn>โปร</TableColumn>
                 <TableColumn>คอร์ส</TableColumn>
                 <TableColumn align="center">จัดการ</TableColumn>
               </TableHeader>
               <TableBody>
                 {students.map((student) => (
-                  <TableRow key={student.uid}>
+                  <TableRow
+                    key={student.uid}
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => router.push(`/students/${student.uid}`)}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar
@@ -310,7 +315,10 @@ export default function StudentsPage() {
                       <span className="text-sm">{getCourseName(student.courseId)}</span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-center gap-1">
+                      <div
+                        className="flex items-center justify-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Button
                           size="sm"
                           variant="flat"
@@ -320,17 +328,6 @@ export default function StudentsPage() {
                           title="แก้ไข"
                         >
                           <Pencil size={16} />
-                        </Button>
-                        <Button
-                          as={Link}
-                          href={`/students/${student.uid}`}
-                          size="sm"
-                          variant="flat"
-                          color="success"
-                          isIconOnly
-                          title="ดูโปรไฟล์"
-                        >
-                          <Eye size={16} />
                         </Button>
                       </div>
                     </TableCell>
@@ -443,8 +440,8 @@ export default function StudentsPage() {
                 </div>
 
                 <Select
-                  label="โปรโค้ช"
-                  placeholder="เลือกโปรโค้ช"
+                  label="โปร"
+                  placeholder="เลือกโปร"
                   {...register("proId")}
                   isInvalid={!!errors.proId}
                   errorMessage={errors.proId?.message}
@@ -485,14 +482,6 @@ export default function StudentsPage() {
                   minRows={2}
                 />
 
-                {!editingStudent && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-xs text-blue-600">
-                      หลังสร้างบัญชี ระบบจะสร้าง QR Code
-                      สำหรับเชื่อมต่อกับ LINE ของนักเรียน
-                    </p>
-                  </div>
-                )}
               </ModalBody>
               <ModalFooter>
                 <Button variant="flat" onPress={onModalClose}>

@@ -33,7 +33,7 @@ function getAdminAuth() {
         clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL || "",
         privateKey: (process.env.FIREBASE_ADMIN_PRIVATE_KEY || "").replace(
           /\\n/g,
-          "\n"
+          "\n",
         ),
       }),
     });
@@ -63,10 +63,11 @@ async function main() {
   console.log("📇 Creating indexes...");
 
   // users
+  await db.collection("users").createIndex({ uid: 1 }, { unique: true });
   await db.collection("users").createIndex({ role: 1 });
   await db.collection("users").createIndex({ lineUserIds: 1 });
   await db.collection("users").createIndex({ role: 1, createdAt: -1 });
-  console.log("   users: role, lineUserIds, role+createdAt");
+  console.log("   users: uid (unique), role, lineUserIds, role+createdAt");
 
   // bookings
   await db.collection("bookings").createIndex({ proId: 1, date: 1 });
@@ -74,6 +75,14 @@ async function main() {
   await db.collection("bookings").createIndex({ date: 1 });
   await db.collection("bookings").createIndex({ createdAt: -1 });
   console.log("   bookings: proId+date, studentId+status, date, createdAt");
+
+  // studentHours
+  await db.collection("studentHours").createIndex({ studentId: 1 }, { unique: true });
+  console.log("   studentHours: studentId (unique)");
+
+  // serviceTokens
+  await db.collection("serviceTokens").createIndex({ studentId: 1 }, { unique: true });
+  console.log("   serviceTokens: studentId (unique)");
 
   // payments
   await db.collection("payments").createIndex({ status: 1, createdAt: -1 });
@@ -125,14 +134,14 @@ async function main() {
   // ── Step 4: Seed owner document in MongoDB ─────────────────────────
   console.log("👤 Seeding owner user document...");
   await db.collection("users").insertOne({
-    _id: uid as any,
+    uid,
     email: OWNER_EMAIL,
     displayName: OWNER_DISPLAY_NAME,
     role: "owner",
     phone: "",
     createdAt: new Date().toISOString(),
   });
-  console.log(`   Inserted user { _id: "${uid}", role: "owner" }`);
+  console.log(`   Inserted user { uid: "${uid}", role: "owner" }`);
   console.log();
 
   // ── Done ───────────────────────────────────────────────────────────

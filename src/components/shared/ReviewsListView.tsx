@@ -172,7 +172,7 @@ export default function ReviewsListView({ role }: ReviewsListViewProps) {
         </h1>
         <p className="text-gray-500 mt-1">
           {isOwner
-            ? `ดูรีวิวล่าสุดจากโปรโค้ช (${filteredReviews.length} รีวิว)`
+            ? `ดูรีวิวล่าสุดจากโปร (${filteredReviews.length} รีวิว)`
             : `รีวิวการสอนของคุณ (${filteredReviews.length} รีวิว)`}
         </p>
       </div>
@@ -192,8 +192,8 @@ export default function ReviewsListView({ role }: ReviewsListViewProps) {
             />
             {isOwner && (
               <Select
-                label="กรองตามโปรโค้ช"
-                placeholder="โปรโค้ชทั้งหมด"
+                label="กรองตามโปร"
+                placeholder="โปรทั้งหมด"
                 size="sm"
                 className="max-w-xs"
                 selectedKeys={filterProId ? [filterProId] : []}

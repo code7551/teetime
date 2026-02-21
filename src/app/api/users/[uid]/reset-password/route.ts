@@ -28,9 +28,7 @@ export async function PUT(
 
     // Verify the target user exists and is a pro
     const db = await getDb();
-    const doc = await db
-      .collection("users")
-      .findOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    const doc = await db.collection("users").findOne({ uid });
 
     if (!doc) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });

@@ -33,6 +33,7 @@ export default function LoginPage() {
   });
 
   useEffect(() => {
+    console.log(user);
     if (!loading && user) {
       if (user.role === "owner") router.replace("/dashboard");
       else if (user.role === "pro") router.replace("/pro/dashboard");

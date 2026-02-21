@@ -51,7 +51,7 @@ export default function ProProfilePage() {
         fetch(`/api/bookings?proId=${id}&status=completed`, { headers }),
       ]);
 
-      if (!proRes.ok) throw new Error("ไม่พบข้อมูลโปรโค้ช");
+      if (!proRes.ok) throw new Error("ไม่พบข้อมูลโปร");
 
       const proData = await proRes.json();
       const studentsData = studentsRes.ok ? await studentsRes.json() : [];
@@ -95,7 +95,7 @@ export default function ProProfilePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">โปรไฟล์โปรโค้ช</h1>
+      <h1 className="text-2xl font-bold text-gray-800">โปรไฟล์โปร</h1>
 
       {/* Pro Info Card */}
       <Card className="shadow-sm">
@@ -139,7 +139,7 @@ export default function ProProfilePage() {
 
       {/* Tabs */}
       <Tabs
-        aria-label="โปรโค้ชแท็บ"
+        aria-label="โปรแท็บ"
         color="success"
         variant="underlined"
         classNames={{

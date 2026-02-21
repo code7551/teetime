@@ -52,7 +52,7 @@ import { findUserByUid, getUserDisplayName } from "@/lib/utils";
 // ─── Schema & constants ──────────────────────────────────────────────
 const createBookingSchema = z.object({
   studentId: z.string().min(1, "กรุณาเลือกนักเรียน"),
-  proId: z.string().min(1, "กรุณาเลือกโปรโค้ช"),
+  proId: z.string().min(1, "กรุณาเลือกโปร"),
   date: z.string().min(1, "กรุณาเลือกวันที่"),
   startTime: z.string().min(1, "กรุณาเลือกเวลาเริ่ม"),
 });
@@ -339,8 +339,8 @@ export default function TimetableView({ role }: TimetableViewProps) {
           <div className="flex flex-col sm:flex-row gap-4 items-end">
             {isOwner && (
               <Select
-                label="กรองตามโปรโค้ช"
-                placeholder="โปรโค้ชทั้งหมด"
+                label="กรองตามโปร"
+                placeholder="โปรทั้งหมด"
                 size="sm"
                 className="max-w-xs"
                 selectedKeys={filterProId ? [filterProId] : []}
@@ -649,8 +649,8 @@ export default function TimetableView({ role }: TimetableViewProps) {
                 </Select>
                 {isOwner && (
                   <Select
-                    label="โปรโค้ช"
-                    placeholder="เลือกโปรโค้ช"
+                    label="โปร"
+                    placeholder="เลือกโปร"
                     {...register("proId")}
                     isInvalid={!!errors.proId}
                     errorMessage={errors.proId?.message}

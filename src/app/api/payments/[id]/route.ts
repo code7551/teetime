@@ -48,7 +48,7 @@ export async function PUT(
       const hoursAdded = paymentDoc.hoursAdded as number;
 
       await db.collection("studentHours").updateOne(
-        { _id: studentId as unknown as ObjectId },
+        { studentId },
         {
           $inc: {
             remainingHours: hoursAdded,
@@ -65,13 +65,13 @@ export async function PUT(
       // Read back updated hours for audit log
       const updatedHours = await db
         .collection("studentHours")
-        .findOne({ _id: studentId as unknown as ObjectId });
+        .findOne({ studentId });
       const remainingHoursAfter = (updatedHours?.remainingHours as number) ?? 0;
 
       // Look up student name
       const studentDoc = await db
         .collection("users")
-        .findOne({ _id: studentId as unknown as ObjectId });
+        .findOne({ uid: studentId });
       const studentName = (studentDoc?.displayName as string) || "";
 
       await db.collection("auditLogs").insertOne({

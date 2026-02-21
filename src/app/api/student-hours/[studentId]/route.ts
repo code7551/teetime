@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +13,7 @@ export async function GET(
 
     const doc = await db
       .collection("studentHours")
-      .findOne({ _id: studentId as unknown as ObjectId });
+      .findOne({ studentId });
 
     if (!doc) {
       return NextResponse.json({

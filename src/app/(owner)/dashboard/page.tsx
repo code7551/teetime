@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import toast from "react-hot-toast";
 import PaymentTable from "@/components/PaymentTable";
 import PaymentReviewModal from "@/components/PaymentReviewModal";
+import UpcomingBookingsList from "@/components/shared/UpcomingBookingsList";
 import type { Payment } from "@/types";
 
 interface DashboardStats {
@@ -117,7 +118,7 @@ export default function OwnerDashboardPage() {
 
   const statCards = [
     {
-      title: "จำนวนโปรโค้ช",
+      title: "จำนวนโปร",
       value: stats?.totalPros ?? 0,
       icon: <Users size={28} className="text-green-600" />,
       bg: "bg-green-50",
@@ -175,6 +176,9 @@ export default function OwnerDashboardPage() {
         ))}
       </div>
 
+      {/* Upcoming Bookings */}
+      <UpcomingBookingsList role="owner" />
+
       {/* Pending Payments Table */}
       <Card className="shadow-sm">
         <CardBody className="p-6">
@@ -183,7 +187,6 @@ export default function OwnerDashboardPage() {
           </h2>
           <PaymentTable
             payments={pendingPayments}
-            showActions
             onViewPayment={handleViewPayment}
             emptyMessage="ไม่มีรายการรอตรวจสอบ"
           />

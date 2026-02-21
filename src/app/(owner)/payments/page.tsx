@@ -128,7 +128,6 @@ export default function PaymentsPage() {
         <CardBody className="p-0">
           <PaymentTable
             payments={filteredPayments}
-            showActions
             onViewPayment={handleViewPayment}
           />
         </CardBody>

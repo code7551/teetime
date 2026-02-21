@@ -33,12 +33,12 @@ export async function GET(
     const userIds = [doc.studentId, doc.proId].filter(Boolean) as string[];
     const userDocs = await db
       .collection("users")
-      .find({ _id: { $in: userIds.map((uid) => uid as unknown as ObjectId) } })
-      .project({ displayName: 1, nickname: 1 })
+      .find({ uid: { $in: userIds } })
+      .project({ uid: 1, displayName: 1, nickname: 1 })
       .toArray();
     const userNameMap = new Map(
       userDocs.map((u) => [
-        u._id.toString(),
+        u.uid as string,
         (u.nickname as string) || (u.displayName as string) || "",
       ])
     );
@@ -105,7 +105,7 @@ export async function PUT(
       const hoursUsed = endH - startH + (endM - startM) / 60;
 
       await db.collection("studentHours").updateOne(
-        { _id: studentId as unknown as ObjectId },
+        { studentId },
         {
           $inc: {
             remainingHours: -hoursUsed,
@@ -122,16 +122,16 @@ export async function PUT(
       // Read back updated hours for audit log
       const updatedHours = await db
         .collection("studentHours")
-        .findOne({ _id: studentId as unknown as ObjectId });
+        .findOne({ studentId });
       const remainingHoursAfter = (updatedHours?.remainingHours as number) ?? 0;
 
       const proId = (bookingDoc.proId as string) || "";
 
       // Look up names from users collection
       const [studentUserDoc, proUserDoc] = await Promise.all([
-        db.collection("users").findOne({ _id: studentId as unknown as ObjectId }),
+        db.collection("users").findOne({ uid: studentId }),
         proId
-          ? db.collection("users").findOne({ _id: proId as unknown as ObjectId })
+          ? db.collection("users").findOne({ uid: proId })
           : Promise.resolve(null),
       ]);
       const studentName = (studentUserDoc?.displayName as string) || "";

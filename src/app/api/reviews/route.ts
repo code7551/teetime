@@ -153,8 +153,8 @@ export async function POST(request: NextRequest) {
     if (isNew) {
       try {
         const [studentDoc, proDoc] = await Promise.all([
-          db.collection("users").findOne({ _id: studentId as unknown as ObjectId }),
-          db.collection("users").findOne({ _id: proId as unknown as ObjectId }),
+          db.collection("users").findOne({ uid: studentId }),
+          db.collection("users").findOne({ uid: proId }),
         ]);
         const lineUserIds: string[] = (studentDoc?.lineUserIds as string[]) || [];
         const resolvedProName = (proDoc?.nickname as string) || (proDoc?.displayName as string) || "โปร";

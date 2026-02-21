@@ -15,7 +15,7 @@ export function getLineClient(): messagingApi.MessagingApiClient {
 
 export async function sendLineMessage(
   userId: string,
-  messages: messagingApi.Message[]
+  messages: messagingApi.Message[],
 ): Promise<void> {
   const c = getLineClient();
   await c.pushMessage({
@@ -31,12 +31,10 @@ export async function sendReviewNotificationToAll(
   lineUserIds: string[],
   proName: string,
   comment: string,
-  date: string
+  date: string,
 ): Promise<void> {
   await Promise.allSettled(
-    lineUserIds.map((id) =>
-      sendReviewNotification(id, proName, comment, date)
-    )
+    lineUserIds.map((id) => sendReviewNotification(id, proName, comment, date)),
   );
 }
 
@@ -44,12 +42,12 @@ export async function sendReviewNotification(
   lineUserId: string,
   proName: string,
   comment: string,
-  date: string
+  date: string,
 ): Promise<void> {
   await sendLineMessage(lineUserId, [
     {
       type: "flex",
-      altText: `โปรโค้ช ${proName} ได้เพิ่มรีวิวหลังเรียน`,
+      altText: `โปร ${proName} ได้เพิ่มรีวิวหลังเรียน`,
       contents: {
         type: "bubble",
         header: {
@@ -71,7 +69,7 @@ export async function sendReviewNotification(
           contents: [
             {
               type: "text",
-              text: `โปรโค้ช: ${proName}`,
+              text: `โปร: ${proName}`,
               size: "md",
               weight: "bold",
             },

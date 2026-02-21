@@ -35,7 +35,7 @@ export async function DELETE(
     const db = await getDb();
     const usersCol = db.collection("users");
 
-    const studentDoc = await usersCol.findOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    const studentDoc = await usersCol.findOne({ uid });
     if (!studentDoc) {
       return NextResponse.json(
         { error: "Student not found" },
@@ -45,7 +45,7 @@ export async function DELETE(
 
     // Remove the LINE userId from the array
     await usersCol.updateOne(
-      { _id: uid as unknown as import("mongodb").ObjectId },
+      { uid },
       { $pull: { lineUserIds: lineUserId } }
     );
 

@@ -197,10 +197,10 @@ export default function ProIncomePage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           <DollarSign className="text-green-600" size={28} />
-          รายได้โปรโค้ช
+          รายได้โปร
         </h1>
         <p className="text-gray-500 mt-1">
-          จัดการการจ่ายเงินให้โปรโค้ชรายนัด
+          จัดการการจ่ายเงินให้โปรรายนัด
         </p>
       </div>
 
@@ -209,8 +209,8 @@ export default function ProIncomePage() {
         <CardBody className="p-4">
           <div className="flex flex-col sm:flex-row gap-4 items-end">
             <Select
-              label="โปรโค้ช"
-              placeholder="โปรโค้ชทั้งหมด"
+              label="โปร"
+              placeholder="โปรทั้งหมด"
               size="sm"
               className="max-w-xs"
               selectedKeys={filterProId ? [filterProId] : []}

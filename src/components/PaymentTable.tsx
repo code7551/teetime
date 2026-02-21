@@ -8,9 +8,7 @@ import {
   TableRow,
   TableCell,
   Chip,
-  Button,
 } from "@heroui/react";
-import { Eye } from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale/th";
 import type { Payment, PaymentStatus } from "@/types";
@@ -28,9 +26,7 @@ export { statusConfig };
 
 interface PaymentTableProps {
   payments: Payment[];
-  /** Show the "จัดการ" action column with a view button */
-  showActions?: boolean;
-  /** Called when the view button is pressed */
+  /** Called when a row is clicked */
   onViewPayment?: (payment: Payment) => void;
   /** Empty state message */
   emptyMessage?: string;
@@ -38,7 +34,6 @@ interface PaymentTableProps {
 
 export default function PaymentTable({
   payments,
-  showActions = false,
   onViewPayment,
   emptyMessage = "ไม่มีรายการชำระเงิน",
 }: PaymentTableProps) {
@@ -54,24 +49,24 @@ export default function PaymentTable({
     { key: "courseName", label: "คอร์ส" },
     { key: "status", label: "สถานะ" },
     { key: "createdAt", label: "วันที่" },
-    ...(showActions ? [{ key: "actions", label: "จัดการ" }] : []),
   ];
 
   return (
     <Table aria-label="รายการชำระเงิน" removeWrapper>
       <TableHeader columns={columns}>
         {(column) => (
-          <TableColumn
-            key={column.key}
-            align={column.key === "actions" ? "center" : "start"}
-          >
+          <TableColumn key={column.key}>
             {column.label}
           </TableColumn>
         )}
       </TableHeader>
       <TableBody items={payments}>
         {(payment) => (
-          <TableRow key={payment.id}>
+          <TableRow
+            key={payment.id}
+            className="cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => onViewPayment?.(payment)}
+          >
             {(columnKey) => {
               switch (columnKey) {
                 case "studentName":
@@ -111,22 +106,6 @@ export default function PaymentTable({
                       {format(new Date(payment.createdAt), "d MMM yyyy", {
                         locale: th,
                       })}
-                    </TableCell>
-                  );
-                case "actions":
-                  return (
-                    <TableCell>
-                      <div className="flex justify-center">
-                        <Button
-                          size="sm"
-                          variant="flat"
-                          color="success"
-                          startContent={<Eye size={16} />}
-                          onPress={() => onViewPayment?.(payment)}
-                        >
-                          ดูรายละเอียด
-                        </Button>
-                      </div>
                     </TableCell>
                   );
                 default:

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
 import {
   issueServiceNotificationToken,
   isServiceMessageConfigured,
@@ -41,7 +40,7 @@ export async function POST(request: NextRequest) {
     if (studentId) {
       const db = await getDb();
       await db.collection("serviceTokens").updateOne(
-        { _id: studentId as unknown as ObjectId },
+        { studentId },
         {
           $set: {
             notificationToken: tokenData.notificationToken,

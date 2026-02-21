@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { verifyActivationCode } from "@/lib/jwt";
 
@@ -39,9 +38,7 @@ export async function POST(request: NextRequest) {
     const usersCol = db.collection("users");
 
     // Check student exists
-    const studentDoc = await usersCol.findOne({
-      _id: studentId as unknown as ObjectId,
-    });
+    const studentDoc = await usersCol.findOne({ uid: studentId });
     if (!studentDoc) {
       return NextResponse.json(
         { error: "ไม่พบข้อมูลนักเรียน" },
@@ -62,24 +59,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: "บัญชี LINE นี้เชื่อมต่อกับนักเรียนแล้ว",
-        student: { uid: studentId, ...studentDoc, _id: undefined },
+        student: { ...studentDoc, _id: undefined },
       });
     }
 
     // Add the LINE userId to the student's lineUserIds array
     await usersCol.updateOne(
-      { _id: studentId as unknown as ObjectId },
+      { uid: studentId },
       { $addToSet: { lineUserIds: lineUserId } }
     );
 
-    const updatedDoc = await usersCol.findOne({
-      _id: studentId as unknown as ObjectId,
-    });
+    const updatedDoc = await usersCol.findOne({ uid: studentId });
 
     return NextResponse.json({
       success: true,
       message: "เชื่อมต่อบัญชี LINE สำเร็จ!",
-      student: { uid: studentId, ...updatedDoc, _id: undefined },
+      student: { ...updatedDoc, _id: undefined },
     });
   } catch (error) {
     console.error("Error activating student:", error);

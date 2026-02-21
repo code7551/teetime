@@ -26,7 +26,7 @@ export async function POST(
     const { uid } = await params;
     const db = await getDb();
 
-    const studentDoc = await db.collection("users").findOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    const studentDoc = await db.collection("users").findOne({ uid });
     if (!studentDoc) {
       return NextResponse.json(
         { error: "ไม่พบนักเรียน" },

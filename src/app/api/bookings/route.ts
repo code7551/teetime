@@ -64,16 +64,12 @@ export async function GET(request: NextRequest) {
     if (userIds.size > 0) {
       const userDocs = await db
         .collection("users")
-        .find({
-          _id: {
-            $in: [...userIds].map((uid) => uid as unknown as ObjectId),
-          },
-        })
-        .project({ displayName: 1, nickname: 1 })
+        .find({ uid: { $in: [...userIds] } })
+        .project({ uid: 1, displayName: 1, nickname: 1 })
         .toArray();
       userDocs.forEach((u) => {
         const name = (u.nickname as string) || (u.displayName as string) || "";
-        userNameMap.set(u._id.toString(), name);
+        userNameMap.set(u.uid as string, name);
       });
     }
 
@@ -123,7 +119,7 @@ export async function POST(request: NextRequest) {
     // Check student's remaining hours
     const studentHoursDoc = await db
       .collection("studentHours")
-      .findOne({ _id: studentId as unknown as ObjectId });
+      .findOne({ studentId });
     const remainingHours = studentHoursDoc?.remainingHours ?? 0;
 
     if (remainingHours < 1) {
@@ -147,16 +143,14 @@ export async function POST(request: NextRequest) {
     if (conflictingBooking) {
       return NextResponse.json(
         {
-          error: `โปรโค้ชมีนัดหมายแล้วในเวลา ${conflictingBooking.startTime} - ${conflictingBooking.endTime}`,
+          error: `โปรมีนัดหมายแล้วในเวลา ${conflictingBooking.startTime} - ${conflictingBooking.endTime}`,
         },
         { status: 400 },
       );
     }
 
     // Look up student to get course info for hourly rate
-    const studentDoc = await db
-      .collection("users")
-      .findOne({ _id: studentId as unknown as ObjectId });
+    const studentDoc = await db.collection("users").findOne({ uid: studentId });
 
     // Calculate and store hourly rate from student's course at booking time
     let hourlyRate = 0;

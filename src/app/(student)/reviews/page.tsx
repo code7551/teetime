@@ -59,13 +59,13 @@ export default function ReviewsPage() {
 
   return (
     <div className="pb-6">
-      <SubPageHeader title="รีวิวจากโปรโค้ช" />
+      <SubPageHeader title="รีวิวจากโปร" />
 
       {reviews.length === 0 ? (
         <div className="text-center py-20">
           <p className="text-sm text-gray-400">ยังไม่มีรีวิว</p>
           <p className="text-xs text-gray-300 mt-1">
-            รีวิวจากโปรโค้ชจะแสดงที่นี่
+            รีวิวจากโปรจะแสดงที่นี่
           </p>
         </div>
       ) : (

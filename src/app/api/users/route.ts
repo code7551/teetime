@@ -36,7 +36,6 @@ export async function GET(request: NextRequest) {
       const users = docs.map(
         (doc) =>
           ({
-            uid: doc._id as unknown as string,
             ...doc,
             _id: undefined,
           }) as unknown as AppUser,
@@ -50,7 +49,6 @@ export async function GET(request: NextRequest) {
     const docs = await usersCol.find(filter).sort({ createdAt: -1 }).toArray();
 
     const users: AppUser[] = docs.map((doc) => ({
-      uid: doc._id as unknown as string,
       ...doc,
       _id: undefined,
     })) as unknown as AppUser[];
@@ -103,7 +101,6 @@ export async function POST(request: NextRequest) {
     const usersCol = db.collection("users");
 
     if (role === "student") {
-      // Students don't get Firebase Auth accounts
       const computedDisplayName =
         displayName ||
         [firstName, lastName].filter(Boolean).join(" ") ||
@@ -112,7 +109,7 @@ export async function POST(request: NextRequest) {
       const studentId = new ObjectId().toHexString();
 
       const studentData: Record<string, unknown> = {
-        _id: studentId,
+        uid: studentId,
         displayName: computedDisplayName,
         role: "student",
         phone: phone || "",
@@ -131,7 +128,6 @@ export async function POST(request: NextRequest) {
 
       await usersCol.insertOne(studentData);
 
-      // Generate activation code JWT
       const activationCode = await createActivationCode(
         studentId,
         computedDisplayName,
@@ -139,7 +135,7 @@ export async function POST(request: NextRequest) {
 
       // Initialize student hours
       await db.collection("studentHours").updateOne(
-        { _id: studentId as unknown as ObjectId },
+        { studentId },
         {
           $set: {
             studentId,
@@ -154,7 +150,6 @@ export async function POST(request: NextRequest) {
       const { _id, ...rest } = studentData;
       return NextResponse.json(
         {
-          uid: studentId,
           ...rest,
           activationCode,
         },
@@ -176,8 +171,16 @@ export async function POST(request: NextRequest) {
       displayName,
     });
 
+    const {
+      nickname: proNickname,
+      proficiency,
+      education,
+      athleticBackground,
+      avatarUrl: proAvatarUrl,
+    } = body;
+
     const userData: Record<string, unknown> = {
-      _id: userRecord.uid,
+      uid: userRecord.uid,
       email,
       displayName,
       role,
@@ -185,12 +188,17 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
       ...(proId && { proId }),
       ...(commissionRate !== undefined && { commissionRate }),
+      ...(proNickname && { nickname: proNickname }),
+      ...(proficiency && { proficiency }),
+      ...(education && { education }),
+      ...(athleticBackground && { athleticBackground }),
+      ...(proAvatarUrl && { avatarUrl: proAvatarUrl }),
     };
 
     await usersCol.insertOne(userData);
 
     const { _id, ...rest } = userData;
-    return NextResponse.json({ uid: userRecord.uid, ...rest }, { status: 201 });
+    return NextResponse.json({ ...rest }, { status: 201 });
   } catch (error) {
     console.error("Error creating user:", error);
     return NextResponse.json(

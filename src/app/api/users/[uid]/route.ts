@@ -18,16 +18,13 @@ export async function GET(
 
     const { uid } = await params;
     const db = await getDb();
-    const doc = await db
-      .collection("users")
-      .findOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    const doc = await db.collection("users").findOne({ uid });
 
     if (!doc) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const user: AppUser = {
-      uid: doc._id as unknown as string,
       ...doc,
       _id: undefined,
     } as unknown as AppUser;
@@ -57,9 +54,7 @@ export async function PUT(
     const db = await getDb();
     const usersCol = db.collection("users");
 
-    const doc = await usersCol.findOne({
-      _id: uid as unknown as import("mongodb").ObjectId,
-    });
+    const doc = await usersCol.findOne({ uid });
     if (!doc) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -67,10 +62,7 @@ export async function PUT(
     // Remove _id and uid from body to prevent overwriting
     const { _id, uid: _uid, ...updateData } = body;
 
-    await usersCol.updateOne(
-      { _id: uid as unknown as import("mongodb").ObjectId },
-      { $set: updateData },
-    );
+    await usersCol.updateOne({ uid }, { $set: updateData });
 
     // Update Firebase Auth display name / email if provided (only for non-student roles)
     if (doc.role !== "student") {
@@ -86,10 +78,8 @@ export async function PUT(
       }
     }
 
-    const updated = await usersCol.findOne({
-      _id: uid as unknown as import("mongodb").ObjectId,
-    });
-    return NextResponse.json({ uid, ...updated, _id: undefined });
+    const updated = await usersCol.findOne({ uid });
+    return NextResponse.json({ ...updated, _id: undefined });
   } catch (error) {
     console.error("Error updating user:", error);
     return NextResponse.json(
@@ -114,9 +104,7 @@ export async function DELETE(
     const db = await getDb();
     const usersCol = db.collection("users");
 
-    const doc = await usersCol.findOne({
-      _id: uid as unknown as import("mongodb").ObjectId,
-    });
+    const doc = await usersCol.findOne({ uid });
     if (!doc) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -129,9 +117,7 @@ export async function DELETE(
         // Student accounts don't have Firebase Auth records - ignore
       }
     }
-    await usersCol.deleteOne({
-      _id: uid as unknown as import("mongodb").ObjectId,
-    });
+    await usersCol.deleteOne({ uid });
 
     return NextResponse.json({ message: "User deleted successfully" });
   } catch (error) {

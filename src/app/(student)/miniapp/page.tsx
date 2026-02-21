@@ -2,12 +2,37 @@
 
 import { useMiniApp } from "@/hooks/useMiniApp";
 import { useEffect, useState } from "react";
-import { Card, CardBody, Spinner, Avatar, Button, Input } from "@heroui/react";
-import { ScanLine, CheckCircle, KeyRound, ChevronRight } from "lucide-react";
-import Link from "next/link";
+import {
+  Spinner,
+  Avatar,
+  Button,
+  Input,
+  Chip,
+} from "@heroui/react";
+import {
+  ScanLine,
+  CheckCircle,
+  KeyRound,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  BookOpen,
+} from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
-import type { StudentHours, Course, Booking } from "@/types";
+import type { StudentHours, Course, Booking, Review } from "@/types";
+
+const PER_PAGE = 20;
+
+const STATUS: Record<
+  string,
+  { label: string; color: "success" | "warning" | "danger" | "default" }
+> = {
+  completed: { label: "เสร็จสิ้น", color: "success" },
+  scheduled: { label: "นัดหมาย", color: "warning" },
+  cancelled: { label: "ยกเลิก", color: "danger" },
+};
 
 export default function MiniAppHomePage() {
   const {
@@ -18,12 +43,17 @@ export default function MiniAppHomePage() {
     isLinked,
     activate,
   } = useMiniApp();
+
   const [hours, setHours] = useState<StudentHours | null>(null);
   const [course, setCourse] = useState<Course | null>(null);
-  const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
-  const [hoursLoading, setHoursLoading] = useState(false);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
 
-  // Activation state
+  const [page, setPage] = useState(1);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
   const [code, setCode] = useState("");
   const [activating, setActivating] = useState(false);
   const [activateError, setActivateError] = useState("");
@@ -34,39 +64,29 @@ export default function MiniAppHomePage() {
     if (!student) return;
 
     const fetchData = async () => {
-      setHoursLoading(true);
+      setDataLoading(true);
       try {
-        const [hoursRes, coursesRes, bookingsRes] = await Promise.all([
-          fetch(`/api/student-hours/${student.uid}`),
-          student.courseId
-            ? fetch("/api/courses?includeHidden=true")
-            : Promise.resolve(null),
-          fetch(`/api/bookings?studentId=${student.uid}`),
-        ]);
-        if (hoursRes.ok) {
-          setHours(await hoursRes.json());
-        }
-        if (coursesRes && coursesRes.ok && student.courseId) {
+        const [hoursRes, coursesRes, bookingsRes, reviewsRes] =
+          await Promise.all([
+            fetch(`/api/student-hours/${student.uid}`),
+            student.courseId
+              ? fetch("/api/courses?includeHidden=true")
+              : Promise.resolve(null),
+            fetch(`/api/bookings?studentId=${student.uid}`),
+            fetch(`/api/reviews?studentId=${student.uid}`),
+          ]);
+
+        if (hoursRes.ok) setHours(await hoursRes.json());
+        if (coursesRes?.ok && student.courseId) {
           const allCourses: Course[] = await coursesRes.json();
-          const found = allCourses.find((c) => c.id === student.courseId);
-          setCourse(found || null);
+          setCourse(allCourses.find((c) => c.id === student.courseId) || null);
         }
-        if (bookingsRes.ok) {
-          const allBookings: Booking[] = await bookingsRes.json();
-          const today = format(new Date(), "yyyy-MM-dd");
-          const upcoming = allBookings
-            .filter((b) => b.status === "scheduled" && b.date >= today)
-            .sort((a, b) => {
-              if (a.date !== b.date) return a.date.localeCompare(b.date);
-              return a.startTime.localeCompare(b.startTime);
-            })
-            .slice(0, 3);
-          setUpcomingBookings(upcoming);
-        }
+        if (bookingsRes.ok) setBookings(await bookingsRes.json());
+        if (reviewsRes.ok) setReviews(await reviewsRes.json());
       } catch (err) {
         console.error("Error fetching data:", err);
       } finally {
-        setHoursLoading(false);
+        setDataLoading(false);
       }
     };
 
@@ -107,6 +127,12 @@ export default function MiniAppHomePage() {
     }
   };
 
+  const goToPage = (p: number) => {
+    setPage(p);
+    setExpandedId(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   // --- Loading ---
   if (miniAppLoading) {
     return (
@@ -130,7 +156,6 @@ export default function MiniAppHomePage() {
   if (!isLinked || !student) {
     return (
       <div className="space-y-6 pb-8 pt-2">
-        {/* Greeting */}
         <div className="flex items-center gap-3.5">
           <Avatar
             src={profile?.pictureUrl}
@@ -146,7 +171,6 @@ export default function MiniAppHomePage() {
           </div>
         </div>
 
-        {/* Activation card */}
         <div className="space-y-5">
           <div className="text-center pt-4">
             <h2 className="text-lg font-semibold text-gray-900">
@@ -161,10 +185,7 @@ export default function MiniAppHomePage() {
 
           {activateSuccess && (
             <div className="bg-emerald-50 rounded-xl p-3.5 flex items-center gap-2.5">
-              <CheckCircle
-                size={18}
-                className="text-emerald-500 shrink-0"
-              />
+              <CheckCircle size={18} className="text-emerald-500 shrink-0" />
               <p className="text-sm text-emerald-700">
                 เชื่อมต่อสำเร็จ! กำลังโหลดข้อมูล...
               </p>
@@ -239,139 +260,256 @@ export default function MiniAppHomePage() {
 
   // --- Linked: Dashboard ---
   const remaining = hours?.remainingHours ?? 0;
+  const reviewByBookingId = new Map(reviews.map((r) => [r.bookingId, r]));
 
-  const menuItems = [
-    { href: "/hours", label: "ชั่วโมงเรียน", sub: "ดูยอดคงเหลือ", dot: "bg-emerald-400" },
-    { href: "/history", label: "ประวัติเรียน", sub: "ดูนัดหมายทั้งหมด", dot: "bg-blue-400" },
-    { href: "/reviews", label: "รีวิวจากโปร", sub: "ผลการเรียนและคอมเมนต์", dot: "bg-purple-400" },
-    { href: "/payment", label: "ชำระเงิน", sub: "เติมชั่วโมงเรียน", dot: "bg-orange-400" },
-  ];
+  const sorted = [...bookings].sort(
+    (a, b) =>
+      b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime),
+  );
+
+  const totalPages = Math.ceil(sorted.length / PER_PAGE);
+  const pageItems = sorted.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   return (
-    <div className="space-y-6 pb-6 pt-2">
-      {/* Profile & hours hero */}
-      <Card className="shadow-sm border-0 overflow-hidden">
-        <CardBody className="p-0">
-          <div className="flex items-center gap-3.5 p-4">
-            <Avatar
-              src={student.avatarUrl || profile?.pictureUrl}
-              name={student.displayName}
-              size="lg"
-              className="shrink-0 ring-2 ring-emerald-100"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-base font-semibold text-gray-900 truncate">
-                {student.nickname || student.displayName}
-              </p>
-              {course && (
-                <p className="text-xs text-gray-400 truncate mt-0.5">
-                  {course.name}
-                </p>
-              )}
-            </div>
-          </div>
-          {!hoursLoading && (
-            <Link href="/hours" className="block">
-              <div className="bg-emerald-50 px-4 py-3.5 flex items-center justify-between active:bg-emerald-100 transition-colors">
-                <div>
-                  <p className="text-xs text-emerald-600/70">ชั่วโมงคงเหลือ</p>
-                  <p className="text-2xl font-bold text-emerald-700 leading-tight mt-0.5">
-                    {remaining}{" "}
-                    <span className="text-sm font-normal text-emerald-500">
-                      ชั่วโมง
-                    </span>
-                  </p>
-                </div>
-                <ChevronRight size={18} className="text-emerald-400" />
-              </div>
-            </Link>
+    <div className="pb-6 -mx-4 -mt-4">
+      {/* Profile bar */}
+      <div className="bg-white px-4 py-3.5 flex items-center gap-3">
+        <Avatar
+          src={student.avatarUrl || profile?.pictureUrl}
+          name={student.displayName}
+          size="md"
+          className="shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold text-gray-900 truncate leading-tight">
+            {student.nickname || student.displayName}
+          </p>
+          {course && (
+            <p className="text-xs text-gray-400 truncate mt-0.5">
+              {course.name}
+            </p>
           )}
-        </CardBody>
-      </Card>
-
-      {/* Upcoming bookings */}
-      {upcomingBookings.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-medium text-gray-500">นัดหมายถัดไป</p>
-            <Link
-              href="/history"
-              className="text-xs text-gray-400"
-            >
-              ดูทั้งหมด
-            </Link>
-          </div>
-          <Card className="shadow-sm border-0 overflow-hidden">
-            <CardBody className="p-0">
-              {upcomingBookings.map((booking, idx) => (
-                <Link key={booking.id} href="/history" className="block">
-                  <div
-                    className={`flex items-center gap-3.5 px-4 py-3.5 active:bg-gray-50 transition-colors ${
-                      idx < upcomingBookings.length - 1
-                        ? "border-b border-gray-100"
-                        : ""
-                    }`}
-                  >
-                    {/* Date badge */}
-                    <div className="w-11 h-11 bg-blue-50 rounded-xl flex flex-col items-center justify-center shrink-0">
-                      <span className="text-[10px] font-medium text-blue-400 uppercase leading-none">
-                        {format(new Date(booking.date), "MMM", { locale: th })}
-                      </span>
-                      <span className="text-base font-semibold text-blue-600 leading-none mt-0.5">
-                        {format(new Date(booking.date), "d")}
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-800">
-                        {format(new Date(booking.date), "EEEE", { locale: th })}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {booking.startTime} – {booking.endTime}
-                        {booking.proName && ` · ${booking.proName}`}
-                      </p>
-                    </div>
-                    <ChevronRight
-                      size={16}
-                      className="text-gray-300 shrink-0"
-                    />
-                  </div>
-                </Link>
-              ))}
-            </CardBody>
-          </Card>
         </div>
-      )}
+        {!dataLoading && (
+          <div className="shrink-0 text-right">
+            <p className="text-xl font-bold text-emerald-600 leading-none">
+              {remaining}
+            </p>
+            <p className="text-[10px] text-gray-400 mt-1">ชม. คงเหลือ</p>
+          </div>
+        )}
+      </div>
 
-      {/* Menu */}
-      <div>
-        <Card className="shadow-sm border-0 overflow-hidden">
-          <CardBody className="p-0">
-            {menuItems.map((item, idx) => (
-              <Link key={item.href} href={item.href} className="block">
-                <div
-                  className={`flex items-center gap-3.5 px-4 py-3.5 active:bg-gray-50 transition-colors ${
-                    idx < menuItems.length - 1
-                      ? "border-b border-gray-100"
-                      : ""
+      {/* Section header */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-2">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          ประวัติการเรียน
+        </p>
+        {sorted.length > 0 && (
+          <p className="text-xs text-gray-300">{sorted.length} รายการ</p>
+        )}
+      </div>
+
+      {/* List */}
+      {dataLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Spinner size="md" color="success" />
+        </div>
+      ) : sorted.length === 0 ? (
+        <div className="text-center py-20 px-4">
+          <BookOpen size={32} className="text-gray-200 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">ยังไม่มีประวัติการเรียน</p>
+          <p className="text-xs text-gray-300 mt-1">
+            ข้อมูลจะแสดงเมื่อมีการจองเรียน
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="bg-white">
+            {pageItems.map((booking, idx) => {
+              const s = STATUS[booking.status] || {
+                label: booking.status,
+                color: "default" as const,
+              };
+              const review = reviewByBookingId.get(booking.id);
+              const hasReview = !!review;
+              const isExpanded = expandedId === booking.id;
+
+              return (
+                <div key={booking.id}>
+                  {idx > 0 && <div className="h-px bg-gray-100 mx-4" />}
+
+                  <button
+                    type="button"
+                    disabled={!hasReview}
+                    onClick={() =>
+                      hasReview &&
+                      setExpandedId(isExpanded ? null : booking.id)
+                    }
+                    className={`w-full text-left px-4 py-3 ${hasReview ? "active:bg-gray-50 transition-colors" : ""}`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-1.5">
+                          <p className="text-[13px] font-medium text-gray-800">
+                            {format(new Date(booking.date), "d MMM yy", {
+                              locale: th,
+                            })}
+                          </p>
+                          <span className="text-[11px] text-gray-300">
+                            {format(new Date(booking.date), "EEEE", {
+                              locale: th,
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {booking.startTime} – {booking.endTime}
+                          {booking.proName && (
+                            <span className="text-gray-300">
+                              {" "}
+                              · {booking.proName}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Chip size="sm" color={s.color} variant="flat">
+                          {s.label}
+                        </Chip>
+                        {hasReview && (
+                          <ChevronDown
+                            size={14}
+                            className={`text-gray-300 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Expanded review */}
+                  {hasReview && isExpanded && review && (
+                    <div className="bg-gray-50 px-4 py-3 space-y-2 border-t border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-purple-600">
+                          รีวิวจากโปร
+                          {review.proName ? ` ${review.proName}` : ""}
+                        </p>
+                        <p className="text-[11px] text-gray-300">
+                          {format(
+                            new Date(review.createdAt),
+                            "d MMM yyyy",
+                            { locale: th },
+                          )}
+                        </p>
+                      </div>
+                      <p className="text-[13px] text-gray-600 whitespace-pre-wrap leading-relaxed">
+                        {review.comment}
+                      </p>
+
+                      {review.videoUrl && (
+                        <div className="rounded-lg overflow-hidden">
+                          <video
+                            controls
+                            className="w-full bg-black rounded-lg"
+                            preload="metadata"
+                          >
+                            <source src={review.videoUrl} />
+                          </video>
+                        </div>
+                      )}
+
+                      {review.imageUrls && review.imageUrls.length > 0 && (
+                        <div className="flex gap-1.5 overflow-x-auto pb-1">
+                          {review.imageUrls.map((url, i) => (
+                            <button
+                              key={url}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLightboxImage(url);
+                              }}
+                              className="w-16 h-16 rounded-lg overflow-hidden shrink-0"
+                            >
+                              <img
+                                src={url}
+                                alt={`รูปภาพ ${i + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-0.5 pt-4 px-4">
+              <button
+                type="button"
+                disabled={page === 1}
+                onClick={() => goToPage(page - 1)}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 disabled:opacity-20 active:bg-gray-100 transition-colors"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => goToPage(p)}
+                  className={`w-8 h-8 flex items-center justify-center rounded-full text-xs font-medium transition-colors ${
+                    p === page
+                      ? "bg-emerald-500 text-white"
+                      : "text-gray-400 active:bg-gray-100"
                   }`}
                 >
-                  <div className={`w-2.5 h-2.5 ${item.dot} rounded-full shrink-0`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800">
-                      {item.label}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">{item.sub}</p>
-                  </div>
-                  <ChevronRight
-                    size={16}
-                    className="text-gray-300 shrink-0"
-                  />
-                </div>
-              </Link>
-            ))}
-          </CardBody>
-        </Card>
-      </div>
+                  {p}
+                </button>
+              ))}
+
+              <button
+                type="button"
+                disabled={page === totalPages}
+                onClick={() => goToPage(page + 1)}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 disabled:opacity-20 active:bg-gray-100 transition-colors"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Lightbox */}
+      {lightboxImage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <button
+            type="button"
+            onClick={() => setLightboxImage(null)}
+            className="absolute inset-0 w-full h-full cursor-default"
+            aria-label="ปิดภาพขยาย"
+          />
+          <button
+            type="button"
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 text-white/60 hover:text-white rounded-full p-2 transition-colors z-10"
+          >
+            <X size={24} />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxImage}
+            alt="ภาพขยาย"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg relative z-10 pointer-events-none"
+          />
+        </div>
+      )}
     </div>
   );
 }

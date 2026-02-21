@@ -136,7 +136,7 @@ export default function AuditLogsPage() {
               </Select>
 
               <Select
-                label="โปรโค้ช"
+                label="โปร"
                 placeholder="ทั้งหมด"
                 size="sm"
                 className="max-w-xs"

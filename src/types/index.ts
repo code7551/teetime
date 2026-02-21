@@ -20,6 +20,9 @@ export interface AppUser {
   birthdate?: string; // ISO date string (YYYY-MM-DD)
   learningGoals?: string;
   courseId?: string; // Assigned course by owner
+  proficiency?: string;
+  education?: string;
+  athleticBackground?: string;
 }
 
 export interface Course {

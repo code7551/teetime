@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ uid: string }> }
+  { params }: { params: Promise<{ uid: string }> },
 ) {
   try {
     const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -18,26 +18,32 @@ export async function GET(
 
     const { uid } = await params;
     const db = await getDb();
-    const doc = await db.collection("users").findOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    const doc = await db
+      .collection("users")
+      .findOne({ _id: uid as unknown as import("mongodb").ObjectId });
 
     if (!doc) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const user: AppUser = { uid: doc._id as string, ...doc, _id: undefined } as unknown as AppUser;
+    const user: AppUser = {
+      uid: doc._id as unknown as string,
+      ...doc,
+      _id: undefined,
+    } as unknown as AppUser;
     return NextResponse.json(user);
   } catch (error) {
     console.error("Error fetching user:", error);
     return NextResponse.json(
       { error: "Failed to fetch user" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ uid: string }> }
+  { params }: { params: Promise<{ uid: string }> },
 ) {
   try {
     const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -51,7 +57,9 @@ export async function PUT(
     const db = await getDb();
     const usersCol = db.collection("users");
 
-    const doc = await usersCol.findOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    const doc = await usersCol.findOne({
+      _id: uid as unknown as import("mongodb").ObjectId,
+    });
     if (!doc) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -61,7 +69,7 @@ export async function PUT(
 
     await usersCol.updateOne(
       { _id: uid as unknown as import("mongodb").ObjectId },
-      { $set: updateData }
+      { $set: updateData },
     );
 
     // Update Firebase Auth display name / email if provided (only for non-student roles)
@@ -78,20 +86,22 @@ export async function PUT(
       }
     }
 
-    const updated = await usersCol.findOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    const updated = await usersCol.findOne({
+      _id: uid as unknown as import("mongodb").ObjectId,
+    });
     return NextResponse.json({ uid, ...updated, _id: undefined });
   } catch (error) {
     console.error("Error updating user:", error);
     return NextResponse.json(
       { error: "Failed to update user" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ uid: string }> }
+  { params }: { params: Promise<{ uid: string }> },
 ) {
   try {
     const token = request.headers.get("Authorization")?.replace("Bearer ", "");
@@ -104,7 +114,9 @@ export async function DELETE(
     const db = await getDb();
     const usersCol = db.collection("users");
 
-    const doc = await usersCol.findOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    const doc = await usersCol.findOne({
+      _id: uid as unknown as import("mongodb").ObjectId,
+    });
     if (!doc) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -117,14 +129,16 @@ export async function DELETE(
         // Student accounts don't have Firebase Auth records - ignore
       }
     }
-    await usersCol.deleteOne({ _id: uid as unknown as import("mongodb").ObjectId });
+    await usersCol.deleteOne({
+      _id: uid as unknown as import("mongodb").ObjectId,
+    });
 
     return NextResponse.json({ message: "User deleted successfully" });
   } catch (error) {
     console.error("Error deleting user:", error);
     return NextResponse.json(
       { error: "Failed to delete user" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -34,7 +34,12 @@ export async function GET(request: NextRequest) {
         .limit(1)
         .toArray();
       const users = docs.map(
-        (doc) => ({ uid: doc._id as string, ...doc, _id: undefined }) as unknown as AppUser
+        (doc) =>
+          ({
+            uid: doc._id as unknown as string,
+            ...doc,
+            _id: undefined,
+          }) as unknown as AppUser,
       );
       return NextResponse.json(users);
     }
@@ -42,13 +47,10 @@ export async function GET(request: NextRequest) {
     const filter: Record<string, unknown> = {};
     if (role) filter.role = role;
 
-    const docs = await usersCol
-      .find(filter)
-      .sort({ createdAt: -1 })
-      .toArray();
+    const docs = await usersCol.find(filter).sort({ createdAt: -1 }).toArray();
 
     const users: AppUser[] = docs.map((doc) => ({
-      uid: doc._id as string,
+      uid: doc._id as unknown as string,
       ...doc,
       _id: undefined,
     })) as unknown as AppUser[];
@@ -58,16 +60,14 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching users:", error);
     return NextResponse.json(
       { error: "Failed to fetch users" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.headers
-      .get("Authorization")
-      ?.replace("Bearer ", "");
+    const token = request.headers.get("Authorization")?.replace("Bearer ", "");
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     if (!role) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -105,7 +105,9 @@ export async function POST(request: NextRequest) {
     if (role === "student") {
       // Students don't get Firebase Auth accounts
       const computedDisplayName =
-        displayName || [firstName, lastName].filter(Boolean).join(" ") || "นักเรียน";
+        displayName ||
+        [firstName, lastName].filter(Boolean).join(" ") ||
+        "นักเรียน";
 
       const studentId = new ObjectId().toHexString();
 
@@ -132,7 +134,7 @@ export async function POST(request: NextRequest) {
       // Generate activation code JWT
       const activationCode = await createActivationCode(
         studentId,
-        computedDisplayName
+        computedDisplayName,
       );
 
       // Initialize student hours
@@ -146,7 +148,7 @@ export async function POST(request: NextRequest) {
             totalHoursUsed: 0,
           },
         },
-        { upsert: true }
+        { upsert: true },
       );
 
       const { _id, ...rest } = studentData;
@@ -156,7 +158,7 @@ export async function POST(request: NextRequest) {
           ...rest,
           activationCode,
         },
-        { status: 201 }
+        { status: 201 },
       );
     }
 
@@ -164,7 +166,7 @@ export async function POST(request: NextRequest) {
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password required for this role" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -188,15 +190,12 @@ export async function POST(request: NextRequest) {
     await usersCol.insertOne(userData);
 
     const { _id, ...rest } = userData;
-    return NextResponse.json(
-      { uid: userRecord.uid, ...rest },
-      { status: 201 }
-    );
+    return NextResponse.json({ uid: userRecord.uid, ...rest }, { status: 201 });
   } catch (error) {
     console.error("Error creating user:", error);
     return NextResponse.json(
       { error: "Failed to create user" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

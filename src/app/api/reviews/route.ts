@@ -149,27 +149,43 @@ export async function POST(request: NextRequest) {
       reviewId = result.insertedId.toString();
     }
 
-    // Send LINE notification (only for new reviews)
-    if (isNew) {
-      try {
-        const [studentDoc, proDoc] = await Promise.all([
-          db.collection("users").findOne({ uid: studentId }),
-          db.collection("users").findOne({ uid: proId }),
-        ]);
-        const lineUserIds: string[] = (studentDoc?.lineUserIds as string[]) || [];
-        const resolvedProName = (proDoc?.nickname as string) || (proDoc?.displayName as string) || "โปร";
+    // Send LINE notification for new and updated reviews
+    try {
+      const studentDoc = await db.collection("users").findOne({ uid: studentId });
+      const proDoc = await db.collection("users").findOne({ uid: proId });
+      const lineUserIds: string[] = (studentDoc?.lineUserIds as string[]) || [];
+      const resolvedProName = (proDoc?.nickname as string) || (proDoc?.displayName as string) || "โปร";
+      const resolvedStudentName = (studentDoc?.nickname as string) || (studentDoc?.displayName as string) || "นักเรียน";
 
-        if (lineUserIds.length > 0) {
-          await sendReviewNotificationToAll(
-            lineUserIds,
-            resolvedProName,
-            comment,
-            date || new Date().toISOString().split("T")[0]
-          );
+      console.log(`[LINE NOTI] studentId=${studentId}, lineUserIds=${JSON.stringify(lineUserIds)}, isNew=${isNew}`);
+
+      if (lineUserIds.length > 0) {
+        let bookingDoc = null;
+        try {
+          bookingDoc = await db.collection("bookings").findOne({ _id: new ObjectId(bookingId) });
+        } catch {
+          // bookingId may not be a valid ObjectId
         }
-      } catch (lineError) {
-        console.error("Failed to send LINE notification:", lineError);
+
+        console.log(`[LINE NOTI] Sending to ${lineUserIds.length} LINE account(s)...`);
+        await sendReviewNotificationToAll(lineUserIds, {
+          proName: resolvedProName,
+          studentName: resolvedStudentName,
+          comment,
+          date: date || new Date().toISOString().split("T")[0],
+          startTime: (bookingDoc?.startTime as string) || undefined,
+          endTime: (bookingDoc?.endTime as string) || undefined,
+          hasVideo: !!(videoUrl),
+          hasImages: Array.isArray(imageUrls) && imageUrls.length > 0,
+          imageCount: Array.isArray(imageUrls) ? imageUrls.length : 0,
+          isUpdate: !isNew,
+        });
+        console.log("[LINE NOTI] Sent successfully");
+      } else {
+        console.log("[LINE NOTI] No LINE accounts linked to student, skipping notification");
       }
+    } catch (lineError) {
+      console.error("[LINE NOTI] Failed to send:", lineError);
     }
 
     const savedDoc = await reviewsCol.findOne({

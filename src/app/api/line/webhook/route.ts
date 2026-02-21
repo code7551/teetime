@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
+import { getLineProfile } from "@/lib/line";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -32,24 +33,40 @@ export async function POST(request: NextRequest) {
     const db = await getDb();
 
     for (const event of events) {
-      // Handle follow event -- log for reference
       if (event.type === "follow") {
         const lineUserId = event.source?.userId;
 
         if (lineUserId) {
-          // Check if this LINE account is already linked to a student
           const existingUser = await db
             .collection("users")
             .findOne({ lineUserIds: lineUserId });
 
           if (!existingUser) {
-            // Store the follow event for tracking
-            await db.collection("linePendingLinks").insertOne({
-              lineUserId,
-              eventType: "follow",
-              timestamp: new Date().toISOString(),
-            });
+            const profile = await getLineProfile(lineUserId);
+
+            await db.collection("linePendingLinks").updateOne(
+              { lineUserId },
+              {
+                $set: {
+                  displayName: profile?.displayName || "",
+                  pictureUrl: profile?.pictureUrl || "",
+                  eventType: "follow",
+                  timestamp: new Date().toISOString(),
+                },
+                $setOnInsert: { lineUserId },
+              },
+              { upsert: true },
+            );
           }
+        }
+      }
+
+      if (event.type === "unfollow") {
+        const lineUserId = event.source?.userId;
+        if (lineUserId) {
+          await db
+            .collection("linePendingLinks")
+            .deleteOne({ lineUserId });
         }
       }
     }

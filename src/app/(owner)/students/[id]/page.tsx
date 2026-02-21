@@ -20,10 +20,11 @@ import {
   Button,
   Snippet,
   Divider,
+  Autocomplete,
+  AutocompleteItem,
 } from "@heroui/react";
 import {
   Phone,
-  CalendarDays,
   Clock,
   Users,
   RefreshCw,
@@ -32,6 +33,7 @@ import {
   User,
   BookOpen,
   Target,
+  Link,
 } from "lucide-react";
 import QRCodeDisplay from "@/components/QRCodeDisplay";
 import { useAuth } from "@/hooks/useAuth";
@@ -53,6 +55,12 @@ export default function StudentProfilePage() {
   const [lineDisplayNameMap, setLineDisplayNameMap] = useState<Record<string, string>>({});
   const [activationCode, setActivationCode] = useState("");
   const [generatingCode, setGeneratingCode] = useState(false);
+  const [pendingLineAccounts, setPendingLineAccounts] = useState<
+    { lineUserId: string; displayName: string; pictureUrl: string; email: string | null; source: string }[]
+  >([]);
+  const [selectedLineUserId, setSelectedLineUserId] = useState<string | null>(null);
+  const [linking, setLinking] = useState(false);
+  const [linkMessage, setLinkMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -70,6 +78,7 @@ export default function StudentProfilePage() {
         paymentsRes,
         prosRes,
         lineAccessesRes,
+        pendingLineRes,
       ] = await Promise.all([
         fetch(`/api/users/${id}`, { headers }),
         fetch(`/api/student-hours/${id}`, { headers }),
@@ -78,6 +87,7 @@ export default function StudentProfilePage() {
         fetch(`/api/payments?studentId=${id}`, { headers }),
         fetch("/api/users?role=pro", { headers }),
         fetch("/api/line-accounts", { headers }),
+        fetch("/api/pending-line-accounts", { headers }),
       ]);
 
       if (!studentRes.ok) throw new Error("ไม่พบข้อมูลนักเรียน");
@@ -100,6 +110,11 @@ export default function StudentProfilePage() {
           }
         }
         setLineDisplayNameMap(nameMap);
+      }
+
+      if (pendingLineRes.ok) {
+        const pendingData = await pendingLineRes.json();
+        setPendingLineAccounts(Array.isArray(pendingData) ? pendingData : []);
       }
 
       setStudent(studentData);
@@ -150,6 +165,35 @@ export default function StudentProfilePage() {
       console.error("Error generating code:", err);
     } finally {
       setGeneratingCode(false);
+    }
+  };
+
+  const linkLineAccount = async () => {
+    if (!firebaseUser || !id || !selectedLineUserId) return;
+    setLinking(true);
+    setLinkMessage(null);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch(`/api/users/${id}/line-accounts`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ lineUserId: selectedLineUserId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLinkMessage({ type: "success", text: data.message || "เชื่อมต่อสำเร็จ" });
+        setSelectedLineUserId(null);
+        fetchData();
+      } else {
+        setLinkMessage({ type: "error", text: data.error || "เกิดข้อผิดพลาด" });
+      }
+    } catch {
+      setLinkMessage({ type: "error", text: "เกิดข้อผิดพลาด กรุณาลองอีกครั้ง" });
+    } finally {
+      setLinking(false);
     }
   };
 
@@ -328,6 +372,82 @@ export default function StudentProfilePage() {
               กดปุ่ม &quot;สร้างรหัส&quot; เพื่อสร้าง QR Code
             </p>
           )}
+
+          {/* Direct LINE Assignment */}
+          <div className="mt-4">
+            <Divider className="mb-3" />
+            <p className="text-xs font-medium text-gray-700 mb-2 flex items-center gap-1.5">
+              <Link size={14} className="text-blue-600" />
+              เชื่อมต่อบัญชี LINE โดยตรง
+            </p>
+            <p className="text-xs text-gray-400 mb-3">
+              เลือกบัญชี LINE จากรายชื่อด้านล่าง เพื่อเชื่อมต่อกับนักเรียนโดยตรง
+              (ระบบจะส่งข้อความแจ้งเตือนไปยัง LINE อัตโนมัติ)
+            </p>
+            {pendingLineAccounts.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">
+                ไม่มีบัญชี LINE ที่พร้อมเชื่อมต่อ (ผู้ใช้ต้องเปิด Mini App หรือ Add เพื่อน LINE OA ก่อน)
+              </p>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Autocomplete
+                  label={`เลือกบัญชี LINE (${pendingLineAccounts.length} บัญชี)`}
+                  size="sm"
+                  variant="bordered"
+                  className="flex-1"
+                  selectedKey={selectedLineUserId}
+                  onSelectionChange={(key) =>
+                    setSelectedLineUserId(key as string | null)
+                  }
+                >
+                  {pendingLineAccounts.map((acc) => (
+                    <AutocompleteItem
+                      key={acc.lineUserId}
+                      textValue={acc.displayName || acc.lineUserId}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Avatar
+                          src={acc.pictureUrl}
+                          name={acc.displayName}
+                          size="sm"
+                          className="shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-medium truncate">
+                              {acc.displayName || "ไม่ทราบชื่อ"}
+                            </p>
+                          </div>
+                          <p className="text-xs text-gray-400 truncate">
+                            {acc.email || acc.lineUserId.slice(0, 16) + "..."}
+                          </p>
+                        </div>
+                      </div>
+                    </AutocompleteItem>
+                  ))}
+                </Autocomplete>
+                <Button
+                  size="sm"
+                  color="success"
+                  variant="flat"
+                  className="self-end sm:self-center"
+                  isLoading={linking}
+                  isDisabled={!selectedLineUserId}
+                  startContent={!linking && <Link size={14} />}
+                  onPress={linkLineAccount}
+                >
+                  เชื่อมต่อ
+                </Button>
+              </div>
+            )}
+            {linkMessage && (
+              <p
+                className={`text-xs mt-2 ${linkMessage.type === "success" ? "text-green-600" : "text-red-500"}`}
+              >
+                {linkMessage.text}
+              </p>
+            )}
+          </div>
 
           {linkedCount > 0 && (
             <div className="mt-4">

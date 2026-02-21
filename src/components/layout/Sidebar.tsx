@@ -184,7 +184,7 @@ export default function Sidebar({ variant }: { variant: "owner" | "pro" }) {
 				<div className="p-5 border-b border-gray-200">
 					<Link href="/dashboard" className="flex items-center gap-3">
 						<Image
-							src="/logo.jpg"
+							src="/logo.png"
 							alt="TeeTime Golf Center"
 							width={40}
 							height={40}

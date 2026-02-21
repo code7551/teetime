@@ -6,8 +6,8 @@ export const metadata: Metadata = {
   title: "Teetime Golf Center",
   description: "ระบบจัดการสถาบันสอนกอล์ฟ Teetime Golf Center",
   icons: {
-    icon: "/logo.jpg",
-    apple: "/logo.jpg",
+    icon: "/logo.png",
+    apple: "/logo.png",
   },
 };
 

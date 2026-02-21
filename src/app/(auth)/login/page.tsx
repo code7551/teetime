@@ -76,7 +76,7 @@ export default function LoginPage() {
             >
               <div className="w-[88px] h-[88px] rounded-2xl bg-gradient-to-br from-emerald-100 to-green-50 p-1 shadow-md ring-1 ring-emerald-200/50">
                 <Image
-                  src="/logo.jpg"
+                  src="/logo.png"
                   alt="Teetime Golf Center"
                   width={88}
                   height={88}

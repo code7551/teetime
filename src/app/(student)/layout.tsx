@@ -13,7 +13,7 @@ function StudentHeader() {
     <header className="sticky top-0 z-50 bg-white border-b border-gray-100 px-4 py-2.5 flex items-center gap-3 shadow-sm">
       <Link href="/miniapp" className="flex items-center gap-3">
         <Image
-          src="/logo.jpg"
+          src="/logo.png"
           alt="TeeTime Golf Center"
           width={36}
           height={36}

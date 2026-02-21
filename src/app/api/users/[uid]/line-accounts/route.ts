@@ -49,17 +49,18 @@ export async function POST(
     if (existingIds.includes(lineUserId)) {
       return NextResponse.json({
         success: true,
-        message: "บัญชี LINE นี้เชื่อมต่อกับนักเรียนแล้ว",
+        message: "บัญชี LINE นี้เชื่อมต่อกับนักเรียนคนนี้แล้ว",
       });
     }
 
     const alreadyLinked = await usersCol.findOne({
       lineUserIds: lineUserId,
+      uid: { $ne: uid },
     });
     if (alreadyLinked) {
       return NextResponse.json(
         {
-          error: `บัญชี LINE นี้เชื่อมต่อกับ ${alreadyLinked.displayName} อยู่แล้ว`,
+          error: `บัญชี LINE นี้เชื่อมต่อกับ "${alreadyLinked.displayName}" อยู่แล้ว`,
         },
         { status: 409 },
       );

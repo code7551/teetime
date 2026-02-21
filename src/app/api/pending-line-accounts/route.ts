@@ -6,8 +6,9 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/pending-line-accounts
- * Returns all LINE accounts not yet linked to any student.
- * Combines data from both lineAccesses (miniapp visitors) and linePendingLinks (OA followers).
+ * Returns LINE accounts not yet linked to any student.
+ * One LINE account can only belong to one student; one student can have multiple LINE accounts.
+ * Combines data from lineAccesses (miniapp visitors) and linePendingLinks (OA followers).
  */
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +25,6 @@ export async function GET(request: NextRequest) {
     const allLinkedIds = await db
       .collection("users")
       .distinct("lineUserIds");
-
     const linkedSet = new Set<string>(allLinkedIds.filter(Boolean));
 
     const [accessDocs, pendingDocs] = await Promise.all([
@@ -42,7 +42,6 @@ export async function GET(request: NextRequest) {
       displayName: string;
       pictureUrl: string;
       email: string | null;
-      source: string;
     }[] = [];
 
     for (const doc of accessDocs) {
@@ -54,7 +53,6 @@ export async function GET(request: NextRequest) {
         displayName: doc.displayName || pending?.displayName || "",
         pictureUrl: pending?.pictureUrl || "",
         email: doc.email || null,
-        source: pending ? "friend" : "visitor",
       });
     }
 
@@ -66,7 +64,6 @@ export async function GET(request: NextRequest) {
         displayName: doc.displayName || "",
         pictureUrl: doc.pictureUrl || "",
         email: null,
-        source: "friend",
       });
     }
 

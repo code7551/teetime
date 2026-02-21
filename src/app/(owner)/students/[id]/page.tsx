@@ -56,7 +56,7 @@ export default function StudentProfilePage() {
   const [activationCode, setActivationCode] = useState("");
   const [generatingCode, setGeneratingCode] = useState(false);
   const [pendingLineAccounts, setPendingLineAccounts] = useState<
-    { lineUserId: string; displayName: string; pictureUrl: string; email: string | null; source: string }[]
+    { lineUserId: string; displayName: string; pictureUrl: string; email: string | null }[]
   >([]);
   const [selectedLineUserId, setSelectedLineUserId] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
@@ -238,6 +238,10 @@ export default function StudentProfilePage() {
 
   const linkedCount = student.lineUserIds?.length ?? 0;
 
+  const availableLineAccounts = pendingLineAccounts.filter(
+    (acc) => !(student.lineUserIds || []).includes(acc.lineUserId),
+  );
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-800">โปรไฟล์นักเรียน</h1>
@@ -384,62 +388,62 @@ export default function StudentProfilePage() {
               เลือกบัญชี LINE จากรายชื่อด้านล่าง เพื่อเชื่อมต่อกับนักเรียนโดยตรง
               (ระบบจะส่งข้อความแจ้งเตือนไปยัง LINE อัตโนมัติ)
             </p>
-            {pendingLineAccounts.length === 0 ? (
-              <p className="text-xs text-gray-400 italic">
-                ไม่มีบัญชี LINE ที่พร้อมเชื่อมต่อ (ผู้ใช้ต้องเปิด Mini App หรือ Add เพื่อน LINE OA ก่อน)
-              </p>
-            ) : (
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Autocomplete
-                  label={`เลือกบัญชี LINE (${pendingLineAccounts.length} บัญชี)`}
-                  size="sm"
-                  variant="bordered"
-                  className="flex-1"
-                  selectedKey={selectedLineUserId}
-                  onSelectionChange={(key) =>
-                    setSelectedLineUserId(key as string | null)
-                  }
-                >
-                  {pendingLineAccounts.map((acc) => (
-                    <AutocompleteItem
-                      key={acc.lineUserId}
-                      textValue={acc.displayName || acc.lineUserId}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Avatar
-                          src={acc.pictureUrl}
-                          name={acc.displayName}
-                          size="sm"
-                          className="shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-medium truncate">
-                              {acc.displayName || "ไม่ทราบชื่อ"}
-                            </p>
-                          </div>
-                          <p className="text-xs text-gray-400 truncate">
-                            {acc.email || acc.lineUserId.slice(0, 16) + "..."}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Autocomplete
+                key={linkedCount}
+                label={
+                  availableLineAccounts.length > 0
+                    ? `เลือกบัญชี LINE (${availableLineAccounts.length} บัญชี)`
+                    : "ไม่มีบัญชี LINE ที่พร้อมเชื่อมต่อ"
+                }
+                size="sm"
+                variant="bordered"
+                className="flex-1"
+                selectedKey={selectedLineUserId}
+                isDisabled={availableLineAccounts.length === 0}
+                onSelectionChange={(key) =>
+                  setSelectedLineUserId(key as string | null)
+                }
+              >
+                {availableLineAccounts.map((acc) => (
+                  <AutocompleteItem
+                    key={acc.lineUserId}
+                    textValue={acc.displayName || acc.lineUserId}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Avatar
+                        src={acc.pictureUrl}
+                        name={acc.displayName}
+                        size="sm"
+                        className="shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium truncate">
+                            {acc.displayName || "ไม่ทราบชื่อ"}
                           </p>
                         </div>
+                        <p className="text-xs text-gray-400 truncate">
+                          {acc.email || acc.lineUserId.slice(0, 16) + "..."}
+                        </p>
                       </div>
-                    </AutocompleteItem>
-                  ))}
-                </Autocomplete>
-                <Button
-                  size="sm"
-                  color="success"
-                  variant="flat"
-                  className="self-end sm:self-center"
-                  isLoading={linking}
-                  isDisabled={!selectedLineUserId}
-                  startContent={!linking && <Link size={14} />}
-                  onPress={linkLineAccount}
-                >
-                  เชื่อมต่อ
-                </Button>
-              </div>
-            )}
+                    </div>
+                  </AutocompleteItem>
+                ))}
+              </Autocomplete>
+              <Button
+                size="sm"
+                color="success"
+                variant="flat"
+                className="self-end sm:self-center"
+                isLoading={linking}
+                isDisabled={!selectedLineUserId}
+                startContent={!linking && <Link size={14} />}
+                onPress={linkLineAccount}
+              >
+                เชื่อมต่อ
+              </Button>
+            </div>
             {linkMessage && (
               <p
                 className={`text-xs mt-2 ${linkMessage.type === "success" ? "text-green-600" : "text-red-500"}`}

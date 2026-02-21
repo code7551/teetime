@@ -12,106 +12,111 @@ import { fadeUp } from "./utils";
 
 const programs = [
 	{
-		title: "กอล์ฟเริ่มต้น",
-		subtitle: "Beginner",
+		title: "หลักสูตรพื้นฐาน",
+		subtitle: "Foundation",
 		description:
-			"เรียนรู้พื้นฐานกอล์ฟทั้งหมดจากศูนย์ ตั้งแต่การจับไม้ การยืน ไปจนถึงวงสวิงที่ถูกต้อง เหมาะสำหรับผู้ที่ไม่เคยเล่นกอล์ฟมาก่อน",
+			"สร้างรากฐานที่แข็งแกร่งตั้งแต่เริ่มต้น ครอบคลุมทุกทักษะสำคัญ ตั้งแต่ Grip, Stance ไปจนถึงวงสวิงที่ถูกต้องตามหลัก Biomechanics",
 		features: [
-			"สร้าง Grip, Stance, Posture ที่ถูกต้อง",
-			"พื้นฐานวงสวิงที่มั่นคง",
-			"เรียนรู้ Short Game เบื้องต้น",
-			"มารยาทและกฎกอล์ฟเบื้องต้น",
+			"Grip, Stance และ Posture ตามหลักสากล",
+			"พัฒนาวงสวิงพื้นฐานที่มั่นคง",
+			"Short Game และ Putting เบื้องต้น",
+			"กฎ มารยาท และ Etiquette บนสนาม",
 		],
 		icon: GraduationCap,
-		color: "green",
+		color: "burgundy",
 	},
 	{
 		title: "พัฒนาฝีมือ",
-		subtitle: "Intermediate",
+		subtitle: "Performance",
 		description:
-			"สำหรับผู้ที่มีพื้นฐานแล้วและต้องการพัฒนาให้ดียิ่งขึ้น เน้นการปรับแก้วงสวิง เพิ่มระยะ และพัฒนา Short Game",
+			"สำหรับผู้เรียนที่มีพื้นฐานและต้องการพัฒนาอย่างเป็นระบบ เน้นวิเคราะห์และปรับปรุงเทคนิค เพิ่มระยะ และยกระดับ Short Game",
 		features: [
-			"วิเคราะห์และปรับแก้วงสวิง",
-			"เพิ่มระยะไดรฟ์อย่างถูกวิธี",
-			"พัฒนา Approach & Putting",
+			"วิเคราะห์สวิงด้วยวิดีโอพร้อมรีวิว",
+			"เทคนิคเพิ่มระยะไดรฟ์อย่างถูกหลัก",
+			"Approach, Chipping และ Putting ขั้นสูง",
 			"Course Management เบื้องต้น",
 		],
 		icon: Target,
-		color: "blue",
+		color: "navy",
 	},
 	{
 		title: "เตรียมแข่งขัน",
-		subtitle: "Advanced",
+		subtitle: "Competitive",
 		description:
-			"โปรแกรมสำหรับนักกอล์ฟที่ต้องการเตรียมตัวแข่งขัน เน้น Mental Game, กลยุทธ์ในสนาม และการฝึกซ้อมอย่างมีแบบแผน",
+			"โปรแกรมเข้มข้นสำหรับนักกอล์ฟที่ตั้งเป้าแข่งขัน เน้น Mental Game กลยุทธ์ในสนาม และแผนฝึกซ้อมระยะยาว",
 		features: [
-			"Mental Game & สมาธิในการแข่ง",
-			"กลยุทธ์และ Course Management ขั้นสูง",
-			"วิเคราะห์สวิงด้วยวิดีโอ",
-			"แผนฝึกซ้อมระยะยาว (Practice Planning)",
+			"Mental Game และการจัดการความกดดัน",
+			"กลยุทธ์ Course Management ขั้นสูง",
+			"วิเคราะห์สวิงเชิงลึกด้วยวิดีโอ",
+			"แผนฝึกซ้อมรายเดือน (Periodization)",
 		],
 		icon: Trophy,
-		color: "purple",
+		color: "gold",
 	},
 	{
-		title: "กอล์ฟเยาวชน",
-		subtitle: "Junior",
+		title: "หลักสูตรเยาวชน",
+		subtitle: "Junior Development",
 		description:
-			"หลักสูตรพิเศษสำหรับเยาวชน สอนสนุก เข้าใจง่าย สร้างพื้นฐานที่แข็งแกร่งพร้อมปลูกฝังความรักในกีฬากอล์ฟ",
+			"พัฒนานักกอล์ฟรุ่นเยาว์ด้วยหลักสูตรที่ออกแบบตามช่วงวัย สร้างพื้นฐานที่ถูกต้อง ควบคู่กับการปลูกฝังวินัยและน้ำใจนักกีฬา",
 		features: [
-			"สอนสนุกแบบเด็กๆ ชอบ",
-			"พื้นฐานที่ถูกต้องตามวัย",
-			"เตรียมพร้อมสู่การแข่งขันเยาวชน",
-			"ดูแลใกล้ชิดโดยโปรที่มีประสบการณ์",
+			"การสอนที่ปรับตามพัฒนาการร่างกาย",
+			"สร้างพื้นฐานเทคนิคที่ถูกต้องตามวัย",
+			"เตรียมพร้อมสู่รายการแข่งขันเยาวชน",
+			"ดูแลใกล้ชิดโดยโปรที่เชี่ยวชาญ",
 		],
 		icon: Zap,
-		color: "orange",
+		color: "plum",
 	},
 ];
 
 const programColorMap: Record<
 	string,
-	{ bg: string; icon: string; badge: string; check: string }
+	{ bg: string; icon: string; badge: string; check: string; border: string }
 > = {
-	green: {
-		bg: "bg-green-50",
-		icon: "text-green-600",
-		badge: "bg-green-100 text-green-700",
-		check: "text-green-500",
+	burgundy: {
+		bg: "bg-rose-50",
+		icon: "text-[#800020]",
+		badge: "bg-rose-100 text-[#800020]",
+		check: "text-[#800020]",
+		border: "group-hover:border-rose-200",
 	},
-	blue: {
-		bg: "bg-blue-50",
-		icon: "text-blue-600",
-		badge: "bg-blue-100 text-blue-700",
-		check: "text-blue-500",
+	navy: {
+		bg: "bg-slate-50",
+		icon: "text-slate-700",
+		badge: "bg-slate-100 text-slate-700",
+		check: "text-slate-600",
+		border: "group-hover:border-slate-200",
 	},
-	purple: {
+	gold: {
+		bg: "bg-amber-50",
+		icon: "text-amber-700",
+		badge: "bg-amber-100 text-amber-800",
+		check: "text-amber-600",
+		border: "group-hover:border-amber-200",
+	},
+	plum: {
 		bg: "bg-purple-50",
-		icon: "text-purple-600",
+		icon: "text-purple-700",
 		badge: "bg-purple-100 text-purple-700",
-		check: "text-purple-500",
-	},
-	orange: {
-		bg: "bg-orange-50",
-		icon: "text-orange-600",
-		badge: "bg-orange-100 text-orange-700",
-		check: "text-orange-500",
+		check: "text-purple-600",
+		border: "group-hover:border-purple-200",
 	},
 };
 
 export function ProgramsSection() {
 	return (
-		<section id="programs" className="py-24 sm:py-32 bg-[#f9fafb]">
+		<section id="programs" className="py-24 sm:py-32 bg-[#faf9f7]">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<motion.div {...fadeUp()} className="text-center max-w-2xl mx-auto">
-					<span className="text-green-600 font-semibold text-sm tracking-wide uppercase">
+					<span className="text-[#800020] font-semibold text-sm tracking-wide uppercase">
 						Programs
 					</span>
 					<h2 className="mt-3 text-3xl sm:text-4xl font-bold text-gray-900">
-						โปรแกรมเรียนที่เหมาะกับคุณ
+						หลักสูตรที่ออกแบบเพื่อทุกเป้าหมาย
 					</h2>
 					<p className="mt-4 text-gray-500 text-lg">
-						ไม่ว่าคุณจะเป็นมือใหม่หรือนักกอล์ฟระดับแข่งขัน เรามีหลักสูตรที่ตอบโจทย์ทุกเป้าหมาย
+						ครอบคลุมตั้งแต่ผู้เริ่มต้นจนถึงนักกอล์ฟระดับแข่งขัน
+						ทุกหลักสูตรได้รับการออกแบบอย่างเป็นระบบโดยทีมโปรมืออาชีพ
 					</p>
 				</motion.div>
 
@@ -122,7 +127,7 @@ export function ProgramsSection() {
 							<motion.div
 								key={program.title}
 								{...fadeUp(i * 0.08)}
-								className="group p-6 sm:p-8 rounded-2xl bg-white border border-gray-100 hover:shadow-xl hover:shadow-gray-100 transition-all duration-300"
+								className={`group p-6 sm:p-8 rounded-2xl bg-white border border-gray-100 ${colors.border} hover:shadow-xl hover:shadow-gray-100/80 transition-all duration-300`}
 							>
 								<div className="flex items-start gap-4 mb-5">
 									<div

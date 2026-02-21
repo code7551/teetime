@@ -16,12 +16,16 @@ export interface ProProfile {
 }
 
 const CARD_GRADIENTS = [
-	"from-green-500 to-emerald-600",
-	"from-blue-500 to-indigo-600",
-	"from-purple-500 to-pink-600",
+	"from-[#800020] to-[#5C0A1E]",
+	"from-[#3D1040] to-[#2A0830]",
+	"from-[#1A2540] to-[#0F1830]",
 ];
 
-const CHECK_COLORS = ["text-green-500", "text-blue-500", "text-purple-500"];
+const CHECK_COLORS = [
+	"text-[#800020]",
+	"text-purple-600",
+	"text-indigo-600",
+];
 
 export function ProsSection({ pros }: { pros: ProProfile[] }) {
 	if (pros.length === 0) return null;
@@ -30,15 +34,16 @@ export function ProsSection({ pros }: { pros: ProProfile[] }) {
 		<section id="pros" className="py-24 sm:py-32 bg-white">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<motion.div {...fadeUp()} className="text-center max-w-2xl mx-auto">
-					<span className="text-green-600 font-semibold text-sm tracking-wide uppercase">
-						Our Pro Team
+					<span className="text-[#800020] font-semibold text-sm tracking-wide uppercase">
+						Our Professionals
 					</span>
 					<h2 className="mt-3 text-3xl sm:text-4xl font-bold text-gray-900">
-						ทีมโปรกอล์ฟของเรา
+						ผู้สอนที่คุณวางใจได้
 					</h2>
 					<p className="mt-4 text-gray-500 text-lg">
-						โปรกอล์ฟมืออาชีพที่ผ่านการแข่งขันระดับประเทศและนานาชาติ
-						พร้อมถ่ายทอดประสบการณ์ให้กับคุณ
+						ทีมโปรกอล์ฟของเราผ่านการแข่งขันระดับชาติและนานาชาติ
+						ทุกท่านได้รับการรับรองจาก PGA Thailand
+						และมีความเชี่ยวชาญในการพัฒนานักกอล์ฟทุกระดับ
 					</p>
 				</motion.div>
 
@@ -57,7 +62,7 @@ export function ProsSection({ pros }: { pros: ProProfile[] }) {
 
 						return (
 							<motion.div key={pro.uid} {...fadeUp(i * 0.12)} className="group">
-								<div className="h-full rounded-3xl bg-gray-50 border border-gray-100 group-hover:bg-white group-hover:shadow-2xl group-hover:shadow-gray-200/50 group-hover:border-gray-200 transition-all duration-500 overflow-hidden">
+								<div className="h-full rounded-3xl bg-gray-50/50 border border-gray-100 group-hover:bg-white group-hover:shadow-2xl group-hover:shadow-gray-200/50 group-hover:border-gray-200 transition-all duration-500 overflow-hidden">
 									<div
 										className={`h-48 bg-linear-to-br ${gradient} relative flex items-center justify-center`}
 									>
@@ -134,7 +139,7 @@ export function ProsSection({ pros }: { pros: ProProfile[] }) {
 															className="flex items-start gap-2 text-sm text-gray-500"
 														>
 															<Trophy
-																className="text-yellow-500 shrink-0 mt-0.5"
+																className="text-amber-500 shrink-0 mt-0.5"
 																size={14}
 															/>
 															{item}

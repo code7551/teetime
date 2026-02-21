@@ -1,38 +1,42 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Star } from "lucide-react";
+import { Star, Quote } from "lucide-react";
 import { fadeUp } from "./utils";
 
 const testimonials = [
 	{
-		text: "โค้ชสอนดีมาก อธิบายเข้าใจง่าย สวิงดีขึ้นเยอะเลยครับ",
+		text: "โปรอธิบายเป็นระบบ เข้าใจง่าย พื้นฐานสวิงแน่นขึ้นมากภายใน 3 เดือนแรก เหมาะมากสำหรับคนที่เพิ่งเริ่มเล่นกอล์ฟ",
 		name: "คุณชัย",
-		detail: "เรียนมา 3 เดือน",
+		detail: "นักเรียนหลักสูตร Foundation",
 	},
 	{
-		text: "ปรับวงสวิงได้ดีขึ้นมาก ชอบที่โค้ชใช้วิดีโอวิเคราะห์สวิง ทำให้เห็นจุดที่ต้องแก้ชัดเจน",
+		text: "ชอบที่โปรใช้วิดีโอวิเคราะห์สวิงหลังจบคลาส ทำให้เห็นจุดที่ต้องปรับปรุงชัดเจน วงสวิงมั่นคงขึ้นมากและ Handicap ลดลงจริง",
 		name: "คุณมิ้นท์",
-		detail: "เรียนมา 6 เดือน",
+		detail: "นักเรียนหลักสูตร Performance",
 	},
 	{
-		text: "ประทับใจการสอน โค้ชปรับให้เหมาะกับสรีระของเราโดยเฉพาะ ระยะไดรฟ์ไกลขึ้นหลังจากปรับท่า",
+		text: "โปรออกแบบการสอนให้เข้ากับสรีระของเราโดยเฉพาะ ระยะไดรฟ์เพิ่มขึ้นอย่างเห็นได้ชัดหลังปรับเทคนิค ประทับใจในความใส่ใจของทีมโปร",
 		name: "คุณต้น",
-		detail: "เรียนมา 1 ปี",
+		detail: "นักเรียนหลักสูตร Competitive",
 	},
 ];
 
 export function TestimonialsSection() {
 	return (
-		<section className="py-24 sm:py-32 bg-[#f9fafb]">
+		<section className="py-24 sm:py-32 bg-[#faf9f7]">
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<motion.div {...fadeUp()} className="text-center max-w-2xl mx-auto">
-					<span className="text-green-600 font-semibold text-sm tracking-wide uppercase">
+					<span className="text-[#800020] font-semibold text-sm tracking-wide uppercase">
 						Testimonials
 					</span>
 					<h2 className="mt-3 text-3xl sm:text-4xl font-bold text-gray-900">
-						เสียงจากนักเรียนของเรา
+						ผลลัพธ์จากผู้เรียนของเรา
 					</h2>
+					<p className="mt-4 text-gray-500 text-lg">
+						ความไว้วางใจจากนักเรียนกว่า 100 คน
+						ที่เลือกพัฒนาทักษะกอล์ฟกับ Teetime
+					</p>
 				</motion.div>
 
 				<div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -40,23 +44,28 @@ export function TestimonialsSection() {
 						<motion.div
 							key={t.name}
 							{...fadeUp(i * 0.1)}
-							className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm"
+							className="relative bg-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-lg hover:shadow-gray-100/50 transition-all duration-300"
 						>
-							<div className="flex gap-1 mb-4">
+							<Quote
+								className="absolute top-6 right-6 text-rose-100"
+								size={32}
+								fill="currentColor"
+							/>
+							<div className="flex gap-1 mb-5">
 								{[...Array(5)].map((_, j) => (
 									<Star
 										// biome-ignore lint: decorative stars
 										key={j}
-										className="text-yellow-400 fill-yellow-400"
+										className="text-amber-400 fill-amber-400"
 										size={16}
 									/>
 								))}
 							</div>
-							<p className="text-gray-600 leading-relaxed mb-6">
+							<p className="text-gray-600 leading-relaxed mb-6 relative">
 								&ldquo;{t.text}&rdquo;
 							</p>
-							<div className="flex items-center gap-3">
-								<div className="w-10 h-10 rounded-full bg-linear-to-br from-green-400 to-emerald-500 flex items-center justify-center">
+							<div className="flex items-center gap-3 pt-4 border-t border-gray-50">
+								<div className="w-10 h-10 rounded-full bg-linear-to-br from-[#800020] to-[#6B1528] flex items-center justify-center">
 									<span className="text-white text-sm font-bold">
 										{t.name.charAt(3)}
 									</span>

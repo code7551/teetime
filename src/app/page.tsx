@@ -21,6 +21,7 @@ import {
   Heart,
   CheckCircle,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 function fadeUp(delay = 0) {
@@ -28,7 +29,7 @@ function fadeUp(delay = 0) {
     initial: { opacity: 0, y: 30 },
     whileInView: { opacity: 1, y: 0 },
     viewport: { once: true, margin: "-50px" },
-    transition: { duration: 0.6, delay, ease: "easeOut" },
+    transition: { duration: 0.6, delay, ease: "easeOut" as const },
   };
 }
 
@@ -63,7 +64,7 @@ function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
-          <a href="/" className="flex items-center gap-2 sm:gap-3 group">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 group">
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-linear-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/25 group-hover:shadow-green-500/40 transition-shadow">
               <span className="text-white font-bold text-base sm:text-lg">
                 T
@@ -75,7 +76,7 @@ function Navbar() {
               Teetime
               <span className="text-green-500"> Golf Center</span>
             </span>
-          </a>
+          </Link>
 
           <div className="hidden lg:flex items-center gap-1">
             {navLinks.map((link) => (
@@ -355,62 +356,27 @@ function AboutSection() {
   );
 }
 
-const pros = [
-  {
-    name: "Pakorn Niamsang",
-    nickname: "โปรโดม",
-    gradient: "from-green-500 to-emerald-600",
-    proficiency: [
-      "พัฒนาสวิงให้มีความแม่นยำและต่อเนื่อง",
-      "การอ่านไลน์พัตต์และการควบคุมระยะใกล้–ไกล",
-      "การเลือกใช้ไม้และกลยุทธ์ในสนาม",
-      "Mental Game: การควบคุมสมาธิและอารมณ์ในการแข่งขัน",
-    ],
-    achievements: [
-      "ตัวแทนนักกีฬากอล์ฟ 7th ASEAN School Game 2015 (บรูไน)",
-      "ตัวแทนนักกีฬากอล์ฟ 19th ASEAN University Game 2018 (พม่า)",
-      "เงินรางวัลรวมอันดับ 1 TDT Order of Merit 2024",
-      "แชมป์ SINGHA-SAT TDT Khon Kaen 2024",
-    ],
-  },
-  {
-    name: "Jirayu Jumroenwattana",
-    nickname: "โปรแบม",
-    gradient: "from-blue-500 to-indigo-600",
-    education: "PGA Thailand Certified",
-    proficiency: [
-      "เกมแอพโพรชที่แม่นยำและการสร้างจังหวะสวิง",
-      "สร้างพื้นฐานวงสวิงที่ถูกต้องเป็นลำดับแรก",
-      "ปรับรูปแบบวงสวิงให้เหมาะกับสรีระของแต่ละคน",
-      "สอนสนุก เข้าใจง่าย เหมาะกับเยาวชนและมือใหม่",
-    ],
-    achievements: [
-      "3rd Runner-up — Faldo Series Thailand Championship 2015",
-      "2nd Runner-up — TGA-Singha at Evergreen Hills Golf 2017",
-    ],
-  },
-  {
-    name: "Kunkrit Piromeiam",
-    nickname: "โปรกฤศ",
-    gradient: "from-purple-500 to-pink-600",
-    education:
-      "ปริญญาตรี วิทยาศาสตร์การกีฬา มหาวิทยาลัยมหิดล",
-    proficiency: [
-      "สร้างวงสวิงสำหรับมือใหม่ตามสรีระเฉพาะบุคคล",
-      "สอนตามหลัก Golf Biomechanics",
-      "เทคนิคการปรับแก้ไขวงสวิงตามความต้องการ",
-      "ความรู้ลึกในเรื่อง Short Game",
-    ],
-    achievements: [
-      "อดีตนักกีฬากอล์ฟทีมมหาวิทยาลัยมหิดล",
-      "อันดับ 1 TGA Central Ranking สะสมคะแนน 2021-2022",
-      "1st Runner-up TGA-SINGHA @Uniland Golf 2022 (2 ครั้ง)",
-      "2 times Hole-in-one",
-    ],
-  },
+interface ProProfile {
+  uid: string;
+  displayName: string;
+  nickname: string;
+  avatarUrl: string;
+  proficiency: string;
+  education: string;
+  athleticBackground: string;
+}
+
+const CARD_GRADIENTS = [
+  "from-green-500 to-emerald-600",
+  "from-blue-500 to-indigo-600",
+  "from-purple-500 to-pink-600",
 ];
 
-function ProsSection() {
+const CHECK_COLORS = ["text-green-500", "text-blue-500", "text-purple-500"];
+
+function ProsSection({ pros }: { pros: ProProfile[] }) {
+  if (pros.length === 0) return null;
+
   return (
     <section id="pros" className="py-24 sm:py-32 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -427,93 +393,114 @@ function ProsSection() {
           </p>
         </motion.div>
 
-        <div className="mt-16 sm:mt-20 grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {pros.map((pro, i) => (
-            <motion.div
-              key={pro.name}
-              {...fadeUp(i * 0.12)}
-              className="group"
-            >
-              <div className="h-full rounded-3xl bg-gray-50 border border-gray-100 group-hover:bg-white group-hover:shadow-2xl group-hover:shadow-gray-200/50 group-hover:border-gray-200 transition-all duration-500 overflow-hidden">
-                <div
-                  className={`h-48 bg-linear-to-br ${pro.gradient} relative flex items-center justify-center`}
-                >
-                  <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border-2 border-white/30">
-                    <span className="text-white text-3xl font-bold">
-                      {pro.name.charAt(0)}
-                    </span>
-                  </div>
-                  {pro.education && (
-                    <div className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white text-xs font-medium border border-white/20">
-                      {pro.education.includes("PGA")
-                        ? "PGA Certified"
-                        : "Sports Science"}
-                    </div>
-                  )}
-                </div>
+        <div className={`mt-16 sm:mt-20 grid grid-cols-1 ${pros.length >= 3 ? "lg:grid-cols-3" : pros.length === 2 ? "lg:grid-cols-2 max-w-4xl mx-auto" : "max-w-lg mx-auto"} gap-8`}>
+          {pros.map((pro, i) => {
+            const gradient = CARD_GRADIENTS[i % CARD_GRADIENTS.length];
+            const checkColor = CHECK_COLORS[i % CHECK_COLORS.length];
+            const proficiencyLines = pro.proficiency
+              ? pro.proficiency.split("\n").filter(Boolean)
+              : [];
+            const achievementLines = pro.athleticBackground
+              ? pro.athleticBackground.split("\n").filter(Boolean)
+              : [];
 
-                <div className="p-6 sm:p-8">
-                  <h3 className="text-xl font-bold text-gray-900">
-                    {pro.nickname}
-                  </h3>
-                  <p className="text-sm text-gray-400 font-medium">
-                    {pro.name}
-                  </p>
-                  {pro.education && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      {pro.education}
+            return (
+              <motion.div
+                key={pro.uid}
+                {...fadeUp(i * 0.12)}
+                className="group"
+              >
+                <div className="h-full rounded-3xl bg-gray-50 border border-gray-100 group-hover:bg-white group-hover:shadow-2xl group-hover:shadow-gray-200/50 group-hover:border-gray-200 transition-all duration-500 overflow-hidden">
+                  <div
+                    className={`h-48 bg-linear-to-br ${gradient} relative flex items-center justify-center`}
+                  >
+                    {pro.avatarUrl ? (
+                      <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-white/30 shadow-lg relative">
+                        <Image
+                          src={pro.avatarUrl}
+                          alt={pro.displayName}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border-2 border-white/30">
+                        <span className="text-white text-3xl font-bold">
+                          {pro.displayName.charAt(0)}
+                        </span>
+                      </div>
+                    )}
+                    {pro.education && (
+                      <div className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white text-xs font-medium border border-white/20">
+                        {pro.education.includes("PGA")
+                          ? "PGA Certified"
+                          : "Sports Science"}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-6 sm:p-8">
+                    <h3 className="text-xl font-bold text-gray-900">
+                      {pro.nickname ? `โปร${pro.nickname}` : pro.displayName}
+                    </h3>
+                    <p className="text-sm text-gray-400 font-medium">
+                      {pro.displayName}
                     </p>
-                  )}
+                    {pro.education && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        {pro.education}
+                      </p>
+                    )}
 
-                  <div className="mt-5">
-                    <h4 className="text-xs font-semibold text-gray-900 uppercase tracking-wider mb-3">
-                      ความเชี่ยวชาญ
-                    </h4>
-                    <ul className="space-y-2">
-                      {pro.proficiency.map((item) => (
-                        <li
-                          key={item}
-                          className="flex items-start gap-2 text-sm text-gray-500"
-                        >
-                          <CheckCircle
-                            className={`shrink-0 mt-0.5 ${
-                              i === 0
-                                ? "text-green-500"
-                                : i === 1
-                                  ? "text-blue-500"
-                                  : "text-purple-500"
-                            }`}
-                            size={14}
-                          />
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                    {proficiencyLines.length > 0 && (
+                      <div className="mt-5">
+                        <h4 className="text-xs font-semibold text-gray-900 uppercase tracking-wider mb-3">
+                          ความเชี่ยวชาญ
+                        </h4>
+                        <ul className="space-y-2">
+                          {proficiencyLines.map((item) => (
+                            <li
+                              key={item}
+                              className="flex items-start gap-2 text-sm text-gray-500"
+                            >
+                              <CheckCircle
+                                className={`shrink-0 mt-0.5 ${checkColor}`}
+                                size={14}
+                              />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-                  <div className="mt-5">
-                    <h4 className="text-xs font-semibold text-gray-900 uppercase tracking-wider mb-3">
-                      ผลงาน
-                    </h4>
-                    <ul className="space-y-2">
-                      {pro.achievements.map((item) => (
-                        <li
-                          key={item}
-                          className="flex items-start gap-2 text-sm text-gray-500"
-                        >
-                          <Trophy
-                            className="text-yellow-500 shrink-0 mt-0.5"
-                            size={14}
-                          />
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
+                    {achievementLines.length > 0 && (
+                      <div className="mt-5">
+                        <h4 className="text-xs font-semibold text-gray-900 uppercase tracking-wider mb-3">
+                          ผลงาน
+                        </h4>
+                        <ul className="space-y-2">
+                          {achievementLines.map((item) => (
+                            <li
+                              key={item}
+                              className="flex items-start gap-2 text-sm text-gray-500"
+                            >
+                              <Trophy
+                                className="text-yellow-500 shrink-0 mt-0.5"
+                                size={14}
+                              />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -800,7 +787,7 @@ function TestimonialsSection() {
                 ))}
               </div>
               <p className="text-gray-600 leading-relaxed mb-6">
-                "{t.text}"
+                &ldquo;{t.text}&rdquo;
               </p>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-linear-to-br from-green-400 to-emerald-500 flex items-center justify-center">
@@ -938,6 +925,7 @@ function Footer() {
 export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [pros, setPros] = useState<ProProfile[]>([]);
 
   useEffect(() => {
     if (!loading && user) {
@@ -948,6 +936,13 @@ export default function Home() {
       }
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    fetch("/api/pros")
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setPros)
+      .catch(() => {});
+  }, []);
 
   if (loading) {
     return (
@@ -970,7 +965,7 @@ export default function Home() {
       <Navbar />
       <HeroSection />
       <AboutSection />
-      <ProsSection />
+      <ProsSection pros={pros} />
       <ProgramsSection />
       <WhyUsSection />
       <TestimonialsSection />
